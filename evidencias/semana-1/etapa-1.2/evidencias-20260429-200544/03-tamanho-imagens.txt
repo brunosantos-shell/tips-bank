@@ -1,0 +1,7 @@
+Validação de tamanho final das imagens
+
+IMAGE                               SIZE_MB         LIMITE_MB       STATUS    
+tipsbank/api-contas:dev             45.53           150             OK        
+tipsbank/api-transacoes:dev         45.81           150             OK        
+tipsbank/auditoria:dev              35.39           150             OK        
+tipsbank/web:dev                    7.92            30              OK        

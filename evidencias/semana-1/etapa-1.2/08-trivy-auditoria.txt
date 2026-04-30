@@ -1,0 +1,111 @@
+
+tipsbank/auditoria:v1.0.0 (debian 12.13)
+========================================
+Total: 27 (HIGH: 25, CRITICAL: 2)
+
+┌───────────────────────┬────────────────┬──────────┬──────────────┬───────────────────┬───────────────┬──────────────────────────────────────────────────────────────┐
+│        Library        │ Vulnerability  │ Severity │    Status    │ Installed Version │ Fixed Version │                            Title                             │
+├───────────────────────┼────────────────┼──────────┼──────────────┼───────────────────┼───────────────┼──────────────────────────────────────────────────────────────┤
+│ libc6                 │ CVE-2026-0861  │ HIGH     │ affected     │ 2.36-9+deb12u13   │               │ glibc: Integer overflow in memalign leads to heap corruption │
+│                       │                │          │              │                   │               │ https://avd.aquasec.com/nvd/cve-2026-0861                    │
+├───────────────────────┼────────────────┤          │              ├───────────────────┼───────────────┼──────────────────────────────────────────────────────────────┤
+│ libexpat1             │ CVE-2026-25210 │          │              │ 2.5.0-1+deb12u2   │               │ libexpat: libexpat: Information disclosure and data          │
+│                       │                │          │              │                   │               │ integrity issues due to integer overflow...                  │
+│                       │                │          │              │                   │               │ https://avd.aquasec.com/nvd/cve-2026-25210                   │
+├───────────────────────┼────────────────┤          │              ├───────────────────┼───────────────┼──────────────────────────────────────────────────────────────┤
+│ libncursesw6          │ CVE-2025-69720 │          │              │ 6.4-4             │               │ ncurses: ncurses: Buffer overflow vulnerability may lead to  │
+│                       │                │          │              │                   │               │ arbitrary code execution.                                    │
+│                       │                │          │              │                   │               │ https://avd.aquasec.com/nvd/cve-2025-69720                   │
+├───────────────────────┼────────────────┤          │              ├───────────────────┼───────────────┼──────────────────────────────────────────────────────────────┤
+│ libpython3.11-minimal │ CVE-2025-13836 │          │              │ 3.11.2-6+deb12u6  │               │ cpython: Excessive read buffering DoS in http.client         │
+│                       │                │          │              │                   │               │ https://avd.aquasec.com/nvd/cve-2025-13836                   │
+│                       ├────────────────┤          ├──────────────┤                   ├───────────────┼──────────────────────────────────────────────────────────────┤
+│                       │ CVE-2025-15366 │          │ will_not_fix │                   │               │ cpython: IMAP command injection in user-controlled commands  │
+│                       │                │          │              │                   │               │ https://avd.aquasec.com/nvd/cve-2025-15366                   │
+│                       ├────────────────┤          │              │                   ├───────────────┼──────────────────────────────────────────────────────────────┤
+│                       │ CVE-2025-15367 │          │              │                   │               │ cpython: POP3 command injection in user-controlled commands  │
+│                       │                │          │              │                   │               │ https://avd.aquasec.com/nvd/cve-2025-15367                   │
+│                       ├────────────────┤          ├──────────────┤                   ├───────────────┼──────────────────────────────────────────────────────────────┤
+│                       │ CVE-2025-69534 │          │ affected     │                   │               │ python-markdown: denial of service via malformed HTML-like   │
+│                       │                │          │              │                   │               │ sequences                                                    │
+│                       │                │          │              │                   │               │ https://avd.aquasec.com/nvd/cve-2025-69534                   │
+│                       ├────────────────┤          │              │                   ├───────────────┼──────────────────────────────────────────────────────────────┤
+│                       │ CVE-2025-8194  │          │              │                   │               │ cpython: Cpython infinite loop when parsing a tarfile        │
+│                       │                │          │              │                   │               │ https://avd.aquasec.com/nvd/cve-2025-8194                    │
+│                       ├────────────────┤          │              │                   ├───────────────┼──────────────────────────────────────────────────────────────┤
+│                       │ CVE-2026-1299  │          │              │                   │               │ cpython: email header injection due to unquoted newlines     │
+│                       │                │          │              │                   │               │ https://avd.aquasec.com/nvd/cve-2026-1299                    │
+│                       ├────────────────┤          │              │                   ├───────────────┼──────────────────────────────────────────────────────────────┤
+│                       │ CVE-2026-6100  │          │              │                   │               │ python: Python: Arbitrary code execution or information      │
+│                       │                │          │              │                   │               │ disclosure via use-after-free in decompression...            │
+│                       │                │          │              │                   │               │ https://avd.aquasec.com/nvd/cve-2026-6100                    │
+├───────────────────────┼────────────────┤          │              │                   ├───────────────┼──────────────────────────────────────────────────────────────┤
+│ libpython3.11-stdlib  │ CVE-2025-13836 │          │              │                   │               │ cpython: Excessive read buffering DoS in http.client         │
+│                       │                │          │              │                   │               │ https://avd.aquasec.com/nvd/cve-2025-13836                   │
+│                       ├────────────────┤          ├──────────────┤                   ├───────────────┼──────────────────────────────────────────────────────────────┤
+│                       │ CVE-2025-15366 │          │ will_not_fix │                   │               │ cpython: IMAP command injection in user-controlled commands  │
+│                       │                │          │              │                   │               │ https://avd.aquasec.com/nvd/cve-2025-15366                   │
+│                       ├────────────────┤          │              │                   ├───────────────┼──────────────────────────────────────────────────────────────┤
+│                       │ CVE-2025-15367 │          │              │                   │               │ cpython: POP3 command injection in user-controlled commands  │
+│                       │                │          │              │                   │               │ https://avd.aquasec.com/nvd/cve-2025-15367                   │
+│                       ├────────────────┤          ├──────────────┤                   ├───────────────┼──────────────────────────────────────────────────────────────┤
+│                       │ CVE-2025-69534 │          │ affected     │                   │               │ python-markdown: denial of service via malformed HTML-like   │
+│                       │                │          │              │                   │               │ sequences                                                    │
+│                       │                │          │              │                   │               │ https://avd.aquasec.com/nvd/cve-2025-69534                   │
+│                       ├────────────────┤          │              │                   ├───────────────┼──────────────────────────────────────────────────────────────┤
+│                       │ CVE-2025-8194  │          │              │                   │               │ cpython: Cpython infinite loop when parsing a tarfile        │
+│                       │                │          │              │                   │               │ https://avd.aquasec.com/nvd/cve-2025-8194                    │
+│                       ├────────────────┤          │              │                   ├───────────────┼──────────────────────────────────────────────────────────────┤
+│                       │ CVE-2026-1299  │          │              │                   │               │ cpython: email header injection due to unquoted newlines     │
+│                       │                │          │              │                   │               │ https://avd.aquasec.com/nvd/cve-2026-1299                    │
+│                       ├────────────────┤          │              │                   ├───────────────┼──────────────────────────────────────────────────────────────┤
+│                       │ CVE-2026-6100  │          │              │                   │               │ python: Python: Arbitrary code execution or information      │
+│                       │                │          │              │                   │               │ disclosure via use-after-free in decompression...            │
+│                       │                │          │              │                   │               │ https://avd.aquasec.com/nvd/cve-2026-6100                    │
+├───────────────────────┼────────────────┼──────────┤              ├───────────────────┼───────────────┼──────────────────────────────────────────────────────────────┤
+│ libsqlite3-0          │ CVE-2025-7458  │ CRITICAL │              │ 3.40.1-2+deb12u2  │               │ sqlite: SQLite integer overflow                              │
+│                       │                │          │              │                   │               │ https://avd.aquasec.com/nvd/cve-2025-7458                    │
+├───────────────────────┼────────────────┼──────────┤              ├───────────────────┼───────────────┼──────────────────────────────────────────────────────────────┤
+│ libtinfo6             │ CVE-2025-69720 │ HIGH     │              │ 6.4-4             │               │ ncurses: ncurses: Buffer overflow vulnerability may lead to  │
+│                       │                │          │              │                   │               │ arbitrary code execution.                                    │
+│                       │                │          │              │                   │               │ https://avd.aquasec.com/nvd/cve-2025-69720                   │
+├───────────────────────┼────────────────┤          │              ├───────────────────┼───────────────┼──────────────────────────────────────────────────────────────┤
+│ python3.11-minimal    │ CVE-2025-13836 │          │              │ 3.11.2-6+deb12u6  │               │ cpython: Excessive read buffering DoS in http.client         │
+│                       │                │          │              │                   │               │ https://avd.aquasec.com/nvd/cve-2025-13836                   │
+│                       ├────────────────┤          ├──────────────┤                   ├───────────────┼──────────────────────────────────────────────────────────────┤
+│                       │ CVE-2025-15366 │          │ will_not_fix │                   │               │ cpython: IMAP command injection in user-controlled commands  │
+│                       │                │          │              │                   │               │ https://avd.aquasec.com/nvd/cve-2025-15366                   │
+│                       ├────────────────┤          │              │                   ├───────────────┼──────────────────────────────────────────────────────────────┤
+│                       │ CVE-2025-15367 │          │              │                   │               │ cpython: POP3 command injection in user-controlled commands  │
+│                       │                │          │              │                   │               │ https://avd.aquasec.com/nvd/cve-2025-15367                   │
+│                       ├────────────────┤          ├──────────────┤                   ├───────────────┼──────────────────────────────────────────────────────────────┤
+│                       │ CVE-2025-69534 │          │ affected     │                   │               │ python-markdown: denial of service via malformed HTML-like   │
+│                       │                │          │              │                   │               │ sequences                                                    │
+│                       │                │          │              │                   │               │ https://avd.aquasec.com/nvd/cve-2025-69534                   │
+│                       ├────────────────┤          │              │                   ├───────────────┼──────────────────────────────────────────────────────────────┤
+│                       │ CVE-2025-8194  │          │              │                   │               │ cpython: Cpython infinite loop when parsing a tarfile        │
+│                       │                │          │              │                   │               │ https://avd.aquasec.com/nvd/cve-2025-8194                    │
+│                       ├────────────────┤          │              │                   ├───────────────┼──────────────────────────────────────────────────────────────┤
+│                       │ CVE-2026-1299  │          │              │                   │               │ cpython: email header injection due to unquoted newlines     │
+│                       │                │          │              │                   │               │ https://avd.aquasec.com/nvd/cve-2026-1299                    │
+│                       ├────────────────┤          │              │                   ├───────────────┼──────────────────────────────────────────────────────────────┤
+│                       │ CVE-2026-6100  │          │              │                   │               │ python: Python: Arbitrary code execution or information      │
+│                       │                │          │              │                   │               │ disclosure via use-after-free in decompression...            │
+│                       │                │          │              │                   │               │ https://avd.aquasec.com/nvd/cve-2026-6100                    │
+├───────────────────────┼────────────────┼──────────┼──────────────┼───────────────────┼───────────────┼──────────────────────────────────────────────────────────────┤
+│ zlib1g                │ CVE-2023-45853 │ CRITICAL │ will_not_fix │ 1:1.2.13.dfsg-1   │               │ zlib: integer overflow and resultant heap-based buffer       │
+│                       │                │          │              │                   │               │ overflow in zipOpenNewFileInZip4_6                           │
+│                       │                │          │              │                   │               │ https://avd.aquasec.com/nvd/cve-2023-45853                   │
+└───────────────────────┴────────────────┴──────────┴──────────────┴───────────────────┴───────────────┴──────────────────────────────────────────────────────────────┘
+
+Python (python-pkg)
+===================
+Total: 1 (HIGH: 1, CRITICAL: 0)
+
+┌──────────────────────┬────────────────┬──────────┬────────┬───────────────────┬───────────────┬──────────────────────────────────────────────────┐
+│       Library        │ Vulnerability  │ Severity │ Status │ Installed Version │ Fixed Version │                      Title                       │
+├──────────────────────┼────────────────┼──────────┼────────┼───────────────────┼───────────────┼──────────────────────────────────────────────────┤
+│ starlette (METADATA) │ CVE-2024-47874 │ HIGH     │ fixed  │ 0.38.6            │ 0.40.0        │ starlette: Starlette Denial of service (DoS) via │
+│                      │                │          │        │                   │               │ multipart/form-data                              │
+│                      │                │          │        │                   │               │ https://avd.aquasec.com/nvd/cve-2024-47874       │
+└──────────────────────┴────────────────┴──────────┴────────┴───────────────────┴───────────────┴──────────────────────────────────────────────────┘

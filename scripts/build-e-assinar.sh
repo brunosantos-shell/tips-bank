@@ -7,9 +7,9 @@
 # -----------------------------------------------------------------------------
 set -euo pipefail
 
-REGISTRY="${REGISTRY:-ghcr.io/seu-usuario}"
+REGISTRY="${REGISTRY:-ghcr.io/brunosantostecinf-shell}"
 TAG="${TAG:-v1.0.0}"
-APPS=(api-contas api-transacoes auditoria)
+APPS=(api-contas api-transacoes auditoria web)
 
 cd "$(dirname "$0")/.."
 

@@ -1,0 +1,10 @@
+Imagem: tipsbank/auditoria:dev
+Comando: trivy image --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 tipsbank/auditoria:dev
+
+
+tipsbank/auditoria:dev (wolfi 20230201)
+=======================================
+Total: 0 (HIGH: 0, CRITICAL: 0)
+
+
+Resultado: OK - 0 vulnerabilidades HIGH/CRITICAL

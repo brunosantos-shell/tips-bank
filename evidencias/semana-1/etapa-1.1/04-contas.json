@@ -1,0 +1,20 @@
+[
+  {
+    "id": "1ace71c6-1899-4afd-b405-3e3b872b96f4",
+    "titular": "Descomplicador",
+    "documento": "11122233344",
+    "saldo": "1000.00"
+  },
+  {
+    "id": "11111111-1111-1111-1111-111111111111",
+    "titular": "Jeferson Fernando",
+    "documento": "12345678901",
+    "saldo": "9900.00"
+  },
+  {
+    "id": "22222222-2222-2222-2222-222222222222",
+    "titular": "LinuxTips SA",
+    "documento": "98765432100",
+    "saldo": "600.00"
+  }
+]

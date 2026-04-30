@@ -1,0 +1,12 @@
+### tipsbank/api-contas:dev
+Total: 0 (HIGH: 0, CRITICAL: 0)
+
+### tipsbank/api-transacoes:dev
+Total: 0 (HIGH: 0, CRITICAL: 0)
+
+### tipsbank/auditoria:dev
+Total: 0 (HIGH: 0, CRITICAL: 0)
+
+### tipsbank/web:dev
+Total: 0 (HIGH: 0, CRITICAL: 0)
+

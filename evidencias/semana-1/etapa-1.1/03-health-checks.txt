@@ -1,0 +1,12 @@
+### api-contas
+{"status":"ok"}
+
+### api-transacoes
+{"status":"ok","version":"v1"}
+
+### auditoria
+{"status":"ok"}
+
+### web
+ok
+

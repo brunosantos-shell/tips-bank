@@ -1,0 +1,8 @@
+CONTAINER ID   IMAGE                                   COMMAND                  CREATED         STATUS                   PORTS                                             NAMES
+5af241da9c84   tipsbank/web:dev                        "/docker-entrypoint.…"   5 minutes ago   Up 5 minutes             0.0.0.0:8080->8080/tcp, [::]:8080->8080/tcp       tipsbank-web
+0f85882eca86   tipsbank/api-transacoes:dev             "python3 -m uvicorn …"   5 minutes ago   Up 5 minutes             0.0.0.0:8082->8080/tcp, [::]:8082->8080/tcp       tipsbank-api-transacoes
+1eed7cfcfe0b   tipsbank/auditoria:dev                  "python3 -m uvicorn …"   5 minutes ago   Up 5 minutes             0.0.0.0:8083->8080/tcp, [::]:8083->8080/tcp       tipsbank-auditoria
+598aba71cab2   tipsbank/api-contas:dev                 "python3 -m uvicorn …"   5 minutes ago   Up 5 minutes             0.0.0.0:8081->8080/tcp, [::]:8081->8080/tcp       tipsbank-api-contas
+9b2bbbba6ad7   postgres:16-alpine                      "docker-entrypoint.s…"   5 minutes ago   Up 5 minutes (healthy)   0.0.0.0:5432->5432/tcp, [::]:5432->5432/tcp       tipsbank-postgres
+bef80e158e46   mariadb:10.11                           "docker-entrypoint.s…"   6 days ago      Up 2 hours               3306/tcp                                          glpi-db
+d1638abe7c7e   zabbix/zabbix-agent:alpine-7.0-latest   "/usr/bin/docker-ent…"   9 days ago      Up 2 hours               0.0.0.0:10050->10050/tcp, [::]:10050->10050/tcp   zabbix-agent

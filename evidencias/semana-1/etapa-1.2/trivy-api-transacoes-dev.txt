@@ -1,0 +1,10 @@
+2026-04-28T14:17:21.298-0300	[34mINFO[0m	Vulnerability scanning is enabled
+2026-04-28T14:17:21.346-0300	[34mINFO[0m	Detected OS: wolfi
+2026-04-28T14:17:21.346-0300	[34mINFO[0m	Detecting Wolfi vulnerabilities...
+2026-04-28T14:17:21.346-0300	[34mINFO[0m	Number of language-specific files: 1
+2026-04-28T14:17:21.346-0300	[34mINFO[0m	Detecting python-pkg vulnerabilities...
+
+tipsbank/api-transacoes:dev (wolfi 20230201)
+============================================
+Total: 0 (HIGH: 0, CRITICAL: 0)
+

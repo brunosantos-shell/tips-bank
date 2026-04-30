@@ -1,0 +1,7 @@
+HTTP/1.1 201 Created
+date: Tue, 28 Apr 2026 00:48:01 GMT
+server: uvicorn
+content-length: 116
+content-type: application/json
+
+{"id":"0452f11d-2d7c-4608-99e5-2b6a7243e7d8","titular":"Teste Evidencia","documento":"99999999999","saldo":"500.00"}

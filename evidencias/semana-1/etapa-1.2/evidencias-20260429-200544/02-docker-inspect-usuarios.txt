@@ -1,0 +1,7 @@
+Validação de usuário final configurado na imagem
+
+IMAGE                               USER_ATUAL      USER_ESPERADO   STATUS    
+tipsbank/api-contas:dev             65532           65532           OK        
+tipsbank/api-transacoes:dev         65532           65532           OK        
+tipsbank/auditoria:dev              65532           65532           OK        
+tipsbank/web:dev                    101             101             OK        

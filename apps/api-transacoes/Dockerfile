@@ -1,16 +1,21 @@
-# syntax=docker/dockerfile:1.7
+FROM cgr.dev/chainguard/python:latest-dev AS builder
 
-FROM python:3.11-slim-bookworm AS builder
+USER root
+
+ENV LANG=C.UTF-8
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/packages
 
 WORKDIR /app
 
 COPY requirements.txt .
+COPY main.py .
+
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir --target=/packages -r requirements.txt
 
-COPY main.py .
-
-FROM gcr.io/distroless/python3-debian12:nonroot
+FROM cgr.dev/chainguard/python:latest
 
 WORKDIR /app
 
@@ -20,7 +25,7 @@ COPY --from=builder /app/main.py /app/main.py
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONPATH=/packages \
-    PATH=/packages/bin:$PATH \
+    PATH="/venv/bin:$PATH" \
     APP_VERSION=v1
 
 EXPOSE 8080
