@@ -1,0 +1,49 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: configmap-app
+  namespace: tipsbank-contas
+data:
+  API_CONTAS_URL: "http://api-contas.tipsbank-contas.svc.cluster.local:8080"
+  API_TRANSACOES_URL: "http://api-transacoes.tipsbank-transacoes.svc.cluster.local:8080"
+  API_AUDITORIA_URL: "http://auditoria.tipsbank-auditoria.svc.cluster.local:8080"
+  AUDITORIA_URL: "http://auditoria.tipsbank-auditoria.svc.cluster.local:8080"
+  POSTGRES_HOST: "postgres.tipsbank-contas.svc.cluster.local"
+  POSTGRES_PORT: "5432"
+  CONTAS_URL: "http://api-contas.tipsbank-contas.svc.cluster.local:8080"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: configmap-app
+  namespace: tipsbank-transacoes
+data:
+  API_CONTAS_URL: "http://api-contas.tipsbank-contas.svc.cluster.local:8080"
+  API_AUDITORIA_URL: "http://auditoria.tipsbank-auditoria.svc.cluster.local:8080"
+  POSTGRES_HOST: "postgres.tipsbank-contas.svc.cluster.local"
+  AUDITORIA_URL: "http://auditoria.tipsbank-auditoria.svc.cluster.local:8080"
+  POSTGRES_PORT: "5432"
+  CONTAS_URL: "http://api-contas.tipsbank-contas.svc.cluster.local:8080"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: configmap-app
+  namespace: tipsbank-auditoria
+data:
+  API_CONTAS_URL: "http://api-contas.tipsbank-contas.svc.cluster.local:8080"
+  API_TRANSACOES_URL: "http://api-transacoes.tipsbank-transacoes.svc.cluster.local:8080"
+  POSTGRES_HOST: "postgres.tipsbank-contas.svc.cluster.local"
+  POSTGRES_PORT: "5432"
+  CONTAS_URL: "http://api-contas.tipsbank-contas.svc.cluster.local:8080"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: configmap-app
+  namespace: tipsbank-web
+data:
+  API_CONTAS_URL: "http://api-contas.tipsbank-contas.svc.cluster.local:8080"
+  API_TRANSACOES_URL: "http://api-transacoes.tipsbank-transacoes.svc.cluster.local:8080"
+  API_AUDITORIA_URL: "http://auditoria.tipsbank-auditoria.svc.cluster.local:8080"
+  CONTAS_URL: "http://api-contas.tipsbank-contas.svc.cluster.local:8080"

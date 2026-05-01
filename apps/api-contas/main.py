@@ -23,10 +23,21 @@ logging.basicConfig(
 )
 log = logging.getLogger("api-contas")
 
+POSTGRES_USER = os.getenv("POSTGRES_USER", "tipsbank")
+POSTGRES_PASSWORD = quote_plus(os.getenv("POSTGRES_PASSWORD", "tipsbank"))
+POSTGRES_HOST = os.getenv("POSTGRES_HOST", "postgres")
+POSTGRES_PORT = os.getenv("POSTGRES_PORT", "5432")
+POSTGRES_DB = os.getenv("POSTGRES_DB", "tipsbank")
+
+DB_URL = f"postgresql+psycopg://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
+
+"""
 DB_URL = os.getenv(
     "DB_URL",
     "postgresql+psycopg://tipsbank:tipsbank@postgres:5432/tipsbank",
 )
+"""
+
 engine = create_engine(DB_URL, pool_pre_ping=True, pool_size=5, max_overflow=10)
 SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 Base = declarative_base()

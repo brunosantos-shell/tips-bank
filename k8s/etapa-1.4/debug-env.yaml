@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: debug-env
+  namespace: tipsbank-contas
+spec:
+  restartPolicy: Never
+  containers:
+    - name: debug
+      image: postgres:16
+      command: ["sleep", "3600"]
+      envFrom:
+        - configMapRef:
+            name: configmap-app
+        - secretRef:
+            name: secret-db

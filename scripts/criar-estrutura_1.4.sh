@@ -185,3 +185,241 @@ spec:
           requests:
             storage: 2Gi
 EOF
+
+cat > criar-manifestos-apps.sh <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+BASE_DIR="${BASE_DIR:-.}"
+REGISTRY="${REGISTRY:-ghcr.io/seu-usuario}"
+TAG="${TAG:-v1.0.0}"
+
+mkdir -p "$BASE_DIR"
+
+cat > "$BASE_DIR/05-api-contas.yaml" <<EOF_API_CONTAS
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-contas
+  namespace: tipsbank-contas
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: api-contas
+  template:
+    metadata:
+      labels:
+        app: api-contas
+    spec:
+      imagePullSecrets:
+        - name: registry-secret
+      containers:
+        - name: api-contas
+          image: ${REGISTRY}/api-contas:${TAG}
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: configmap-app
+            - secretRef:
+                name: secret-db
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-contas
+  namespace: tipsbank-contas
+spec:
+  type: ClusterIP
+  selector:
+    app: api-contas
+  ports:
+    - port: 8080
+      targetPort: 8080
+EOF_API_CONTAS
+
+cat > "$BASE_DIR/06-api-transacoes.yaml" <<EOF_API_TRANSACOES
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-transacoes
+  namespace: tipsbank-transacoes
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: api-transacoes
+  template:
+    metadata:
+      labels:
+        app: api-transacoes
+    spec:
+      imagePullSecrets:
+        - name: registry-secret
+      containers:
+        - name: api-transacoes
+          image: ${REGISTRY}/api-transacoes:${TAG}
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: configmap-app
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-transacoes
+  namespace: tipsbank-transacoes
+spec:
+  type: ClusterIP
+  selector:
+    app: api-transacoes
+  ports:
+    - port: 8080
+      targetPort: 8080
+EOF_API_TRANSACOES
+
+cat > "$BASE_DIR/07-auditoria.yaml" <<EOF_AUDITORIA
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auditoria
+  namespace: tipsbank-auditoria
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: auditoria
+  template:
+    metadata:
+      labels:
+        app: auditoria
+    spec:
+      imagePullSecrets:
+        - name: registry-secret
+      containers:
+        - name: auditoria
+          image: ${REGISTRY}/auditoria:${TAG}
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: configmap-app
+          volumeMounts:
+            - name: auditoria-data
+              mountPath: /data
+      volumes:
+        - name: auditoria-data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auditoria
+  namespace: tipsbank-auditoria
+spec:
+  type: ClusterIP
+  selector:
+    app: auditoria
+  ports:
+    - port: 8080
+      targetPort: 8080
+EOF_AUDITORIA
+
+cat > "$BASE_DIR/08-web.yaml" <<EOF_WEB
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-conf
+  namespace: tipsbank-web
+data:
+  nginx.conf: |
+    events {}
+
+    http {
+      upstream api_contas {
+        server api-contas.tipsbank-contas.svc.cluster.local:8080;
+      }
+
+      upstream api_transacoes {
+        server api-transacoes.tipsbank-transacoes.svc.cluster.local:8080;
+      }
+
+      upstream auditoria {
+        server auditoria.tipsbank-auditoria.svc.cluster.local:8080;
+      }
+
+      server {
+        listen 80;
+
+        location / {
+          root /usr/share/nginx/html;
+          index index.html;
+          try_files \$uri /index.html;
+        }
+
+        location /api/contas/ {
+          proxy_pass http://api_contas/;
+        }
+
+        location /api/transacoes/ {
+          proxy_pass http://api_transacoes/;
+        }
+
+        location /api/auditoria/ {
+          proxy_pass http://auditoria/;
+        }
+      }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: tipsbank-web
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      imagePullSecrets:
+        - name: registry-secret
+      containers:
+        - name: web
+          image: ${REGISTRY}/web:${TAG}
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: nginx-conf
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+      volumes:
+        - name: nginx-conf
+          configMap:
+            name: nginx-conf
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+  namespace: tipsbank-web
+spec:
+  type: ClusterIP
+  selector:
+    app: web
+  ports:
+    - port: 8080
+      targetPort: 80
+EOF_WEB
+
+echo "Manifestos criados em: $BASE_DIR"
+ls -lh "$BASE_DIR"/05-api-contas.yaml "$BASE_DIR"/06-api-transacoes.yaml "$BASE_DIR"/07-auditoria.yaml "$BASE_DIR"/08-web.yaml
+EOF
+
+chmod +x criar-manifestos-apps.sh

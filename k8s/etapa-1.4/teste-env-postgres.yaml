@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: teste-env
+  namespace: tipsbank-contas
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: teste-env
+  template:
+    metadata:
+      labels:
+        app: teste-env
+    spec:
+      containers:
+        - name: teste-env
+          image: postgres:16-alpine
+          command: ["sh", "-c", "sleep 3600"]
+          envFrom:
+            - configMapRef:
+                name: configmap-app
+            - secretRef:
+                name: secret-db

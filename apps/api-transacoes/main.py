@@ -22,10 +22,21 @@ logging.basicConfig(
 )
 log = logging.getLogger("api-transacoes")
 
+POSTGRES_USER = os.getenv("POSTGRES_USER", "tipsbank")
+POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "tipsbank")
+POSTGRES_HOST = os.getenv("POSTGRES_HOST", "postgres")
+POSTGRES_PORT = os.getenv("POSTGRES_PORT", "5432")
+POSTGRES_DB = os.getenv("POSTGRES_DB", "tipsbank")
+
+DB_URL = f"postgresql+psycopg://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
+
+"""
 DB_URL = os.getenv(
     "DB_URL",
     "postgresql+psycopg://tipsbank:tipsbank@postgres:5432/tipsbank",
 )
+"""
+
 CONTAS_URL = os.getenv("CONTAS_URL", "http://api-contas:8080")
 AUDITORIA_URL = os.getenv("AUDITORIA_URL", "http://auditoria:8080")
 APP_VERSION = os.getenv("APP_VERSION", "v1")

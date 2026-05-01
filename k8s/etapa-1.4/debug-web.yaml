@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: debug-web
+  namespace: tipsbank-web
+spec:
+  containers:
+    - name: debug
+      image: nicolaka/netshoot
+      command: ["sleep", "3600"]
+      envFrom:
+        - configMapRef:
+            name: configmap-app
+  restartPolicy: Never
