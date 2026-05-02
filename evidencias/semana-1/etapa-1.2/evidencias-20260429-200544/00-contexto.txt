@@ -1,8 +1,0 @@
-Data: Wed Apr 29 08:05:44 PM -03 2026
-Host: docker-host.lab.local
-
-Imagens avaliadas:
-tipsbank/api-contas:dev
-tipsbank/api-transacoes:dev
-tipsbank/auditoria:dev
-tipsbank/web:dev

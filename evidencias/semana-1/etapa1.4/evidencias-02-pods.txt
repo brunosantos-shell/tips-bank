@@ -1,0 +1,9 @@
+tipsbank-auditoria    auditoria-555c54f9d8-24f5c                                  1/1     Running   0               19h     10.10.76.148    worker-k8s-02   <none>           <none>
+tipsbank-auditoria    auditoria-555c54f9d8-grslv                                  1/1     Running   0               19h     10.10.24.136    worker-k8s-01   <none>           <none>
+tipsbank-contas       api-contas-655f7b7985-9mkh6                                 1/1     Running   0               22h     10.10.24.165    worker-k8s-01   <none>           <none>
+tipsbank-contas       api-contas-655f7b7985-vr7zz                                 1/1     Running   0               22h     10.10.76.153    worker-k8s-02   <none>           <none>
+tipsbank-contas       postgres-0                                                  1/1     Running   0               22h     10.10.76.144    worker-k8s-02   <none>           <none>
+tipsbank-transacoes   api-transacoes-7589c57b4f-8hnfm                             1/1     Running   0               18h     10.10.76.155    worker-k8s-02   <none>           <none>
+tipsbank-transacoes   api-transacoes-7589c57b4f-skqjt                             1/1     Running   0               18h     10.10.24.129    worker-k8s-01   <none>           <none>
+tipsbank-web          web-d4cffb99b-m7c5g                                         1/1     Running   0               19h     10.10.76.146    worker-k8s-02   <none>           <none>
+tipsbank-web          web-d4cffb99b-pzs5v                                         1/1     Running   0               19h     10.10.24.137    worker-k8s-01   <none>           <none>

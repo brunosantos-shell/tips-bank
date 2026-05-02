@@ -1,7 +1,0 @@
-Container auditoria: tipsbank-auditoria
-
-### Arquivos em /data
-OCI runtime exec failed: exec failed: unable to start container process: exec: "ls": executable file not found in $PATH
-
-### Conteúdo eventos
-OCI runtime exec failed: exec failed: unable to start container process: exec: "sh": executable file not found in $PATH

@@ -36,9 +36,9 @@ for img in "${IMAGES[@]}"; do
 
   {
     echo "Imagem: $img"
-    echo "Comando: trivy image --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 $img"
+    echo "Comando: trivy image --severity HIGH,CRITICAL --exit-code 1 $img"
     echo
-    trivy image --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 "$img"
+    trivy image --severity HIGH,CRITICAL  --exit-code 1 "$img"
     echo
     echo "Resultado: OK - 0 vulnerabilidades HIGH/CRITICAL"
   } | tee "$OUT/01-trivy-${safe_name}.txt"

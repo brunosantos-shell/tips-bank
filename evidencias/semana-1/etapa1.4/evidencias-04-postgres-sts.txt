@@ -1,0 +1,2 @@
+NAME       READY   AGE   CONTAINERS   IMAGES
+postgres   1/1     22h   postgres     postgres:16

@@ -1,0 +1,6 @@
+tipsbank-auditoria    auditoria                                        ClusterIP      10.110.224.177   <none>           8080/TCP                       20h
+tipsbank-contas       api-contas                                       ClusterIP      10.107.34.101    <none>           8080/TCP                       22h
+tipsbank-contas       postgres                                         ClusterIP      10.96.148.206    <none>           5432/TCP                       35h
+tipsbank-contas       postgres-headless                                ClusterIP      None             <none>           5432/TCP                       36h
+tipsbank-transacoes   api-transacoes                                   ClusterIP      10.99.7.19       <none>           8080/TCP                       20h
+tipsbank-web          web                                              ClusterIP      10.107.100.128   <none>           8080/TCP                       19h

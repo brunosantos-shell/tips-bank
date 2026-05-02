@@ -1,0 +1,4 @@
+tipsbank-auditoria    Active   36h
+tipsbank-contas       Active   36h
+tipsbank-transacoes   Active   36h
+tipsbank-web          Active   36h
