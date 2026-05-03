@@ -131,7 +131,7 @@ Foi realizado o build das imagens das aplicações TipsBank:
 
 As APIs utilizam Dockerfile multi-stage, separando a etapa de build da etapa de runtime. No builder é utilizada uma imagem Python com ferramentas de compilação, enquanto no runtime é utilizada imagem Distroless, reduzindo a superfície de ataque.
 
-- 📄 Log de build: [build-cosing.txt](../evidencias/semana-1/etapa-1.2/build-cosing.txt)
+- 📄 Log: [build-cosing.txt](../evidencias/semana-1/etapa-1.2/build-cosing.txt)
 
 ---
 
@@ -148,12 +148,12 @@ PATH=/packages/bin:$PATH
 
 ### 3. Scan de Vulnerabilidades com Trivy
 
-
 Inicialmente, foi realizado o scan de vulnerabilidades nas imagens construídas utilizando base Distroless padrão.
 
-Comando utilizado:
+```bash
 trivy image --severity HIGH,CRITICAL <imagem>
-Evidências (primeira análise):
+```
+
 - 📄 API Contas: [trivy-api-contas.txt](../evidencias/semana-1/etapa-1.2/06-trivy-api-contas.txt)
 - 📄 API Transações: [trivy-api-transacoes.txt](../evidencias/semana-1/etapa-1.2/07-trivy-api-transacoes.txt)
 - 📄 Auditoria: [trivy-auditoria.txt](../evidencias/semana-1/etapa-1.2/08-trivy-auditoria.txt)
@@ -168,22 +168,17 @@ Resultado (primeira execução):
 
 Para atender ao requisito de segurança da etapa (0 vulnerabilidades HIGH/CRITICAL), foi realizada a substituição das imagens base por imagens da Chainguard (Wolfi), conhecidas por:
 
-Ciclo rápido de atualização de segurança
-Redução de CVEs conhecidas
-Imagens minimalistas e voltadas para segurança
+- Ciclo rápido de atualização de segurança
+- Redução de CVEs conhecidas
+- Imagens minimalistas e voltadas para segurança
 
 As imagens foram reconstruídas utilizando essa nova base.
-
-Resultado:
-
-✔ Redução significativa da superfície de vulnerabilidades
-✔ Uso de imagens hardened e atualizadas
 
 ### 5. Novo Scan com Trivy (Imagens Chainguard)
 
 Após a substituição das imagens base, foi executado um novo scan com Trivy.
 
-- 📄 API Contas: [trivy-api-contas-chainguard.txt](../evidencias/semana-1/etapa-1.2/trivy-api-contas-chainguardtxt)
+- 📄 API Contas: [trivy-api-contas-chainguard.txt](../evidencias/semana-1/etapa-1.2/trivy-api-contas-chainguard.txt)
 - 📄 API Transações: [trivy-api-transacoes-chainguard.txt](../evidencias/semana-1/etapa-1.2/trivy-api-transacoes-chaiguard.txt)
 - 📄 Auditoria: [trivy-auditoria-chainguard.txt](../evidencias/semana-1/etapa-1.2/trivy-auditoria-chainguard.txt)
 - 📄 Web: [trivy-web-chainguard.txt](../evidencias/semana-1/etapa-1.2/trivy-web-chaiguard.txt)
@@ -199,7 +194,6 @@ docker inspect <imagem>
 ```
 
 - 📄 [docker-inspect-usuarios.txt](../evidencias/semana-1/etapa-1.2/02-docker-inspect-usuarios.txt)
-
 
 ### 7. Validação do Tamanho das Imagens
 
@@ -239,8 +233,6 @@ Evidência:
 
 ### Conclusão
 
-### Resultado:
-
 - ✔ Build das 4 imagens do projeto (api-contas, api-transacoes, auditoria e web) utilizando Docker multi-stage
 - ✔ Utilização de runtime Distroless para redução da superfície de ataque
 - ✔ Ajuste técnico no build Python utilizando pip install --target=/packages (compatível com Distroless)
@@ -255,4 +247,120 @@ Evidência:
 
 ---
 
-### **Etapa 1.3 Cluster kubeadm multi-node**
+### **Etapa 1.3 — Cluster Kubernetes kubeadm multi-node**
+
+## Objetivo da Etapa
+
+Provisionar um cluster Kubernetes com:
+
+- 1 nó control-plane
+- 2 nós workers
+- Runtime containerd
+- CNI funcional
+
+Garantindo o funcionamento do cluster e a capacidade de agendamento de workloads.
+
+---
+
+### 1. Provisionamento das Máquinas
+
+### Descrição
+
+Foram provisionadas 3 máquinas Linux (Ubuntu 24.10), sendo:
+
+- 1 nó control-plane
+- 2 nós workers
+
+
+---
+
+### 2. Instalação dos Componentes Kubernetes
+
+### Descrição
+
+Em todos os nós foram instalados:
+
+- containerd (runtime de containers)
+- kubeadm
+- kubelet
+- kubectl
+
+Também foram aplicadas configurações obrigatórias:
+
+- Desabilitação do swap
+- Configuração do containerd
+- Ajustes de sysctl para networking
+
+### 3. Inicialização do Control-Plane
+
+### Comando executado:
+
+```bash
+kubeadm init --pod-network-cidr=<CIDR_DO_CNI>
+```
+
+- 🖼️  Inicialização do cluster: `init-cluster.png`
+
+![alt text](../evidencias/semana-1/etapa-1.3/init-cluster.png)
+
+### 4. Join dos Workers ao Cluster
+
+🖼️ Join worker 01: `join-worker01.png`
+
+![alt text](../evidencias/semana-1/etapa-1.3/join-worker01.png)
+
+🖼️ Join worker 02: `join-worker02.png`
+
+![alt text](../evidencias/semana-1/etapa-1.3/join-worker02.png)
+
+### 5. Instalação do CNI (Container Network Interface)
+
+Foi instalado o plugin de rede Calico para habilitar comunicação entre pods.
+
+- 🖼️ Instalação calico CNI cluster K8S
+
+![alt text](../evidencias/semana-1/etapa-1.3/install-calico.png)
+
+### 6. Validação dos Nós
+
+```bash
+kubectl get nodes -o wide
+```
+
+- 🖼️ Validação dos nodes do cluster K8S
+
+![alt text](../evidencias/semana-1/etapa-1.3/nodes-ready.png)
+
+### 7. Validação dos Pods do Sistema
+
+- 🖼️ Validação dos pods do cluster K8S
+
+![alt text](../evidencias/semana-1/etapa-1.3/pods-ready.png)
+
+### 8. Teste de Agendamento de Pod
+
+- 🖼️ Agendamento de pods do cluster K8S
+
+![alt text](../evidencias/semana-1/etapa-1.3/schedule-pod.png)
+
+### 9. Validações Finais do Cluster K8S
+
+- 🖼️ Execução de testes do cluster K8S
+
+![alt text](../evidencias/semana-1/etapa-1.3/image.png)
+
+![alt text](../evidencias/semana-1/etapa-1.3/image-1.png)
+
+![alt text](../evidencias/semana-1/etapa-1.3/image-2.png)
+
+![alt text](../evidencias/semana-1/etapa-1.3/image-3.png)
+
+## Conclusão
+
+O cluster Kubernetes foi provisionado com sucesso utilizando kubeadm, composto por 1 control-plane e 2 workers.
+
+Foram validados:
+- Inicialização do cluster
+- Comunicação entre nós
+- Funcionamento da rede (CNI)
+- Execução e agendamento de workloads
