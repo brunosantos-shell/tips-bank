@@ -16,34 +16,27 @@ from sqlalchemy import Column, String, Numeric, DateTime, create_engine, func
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
 from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
 
-# =========================
-# LOGGING (AJUSTADO)
-# =========================
-LOG_DIR = "/var/log/app"
-LOG_FILE = f"{LOG_DIR}/app.log"
-
-os.makedirs(LOG_DIR, exist_ok=True)
-
-log_format = '{"ts":"%(asctime)s","level":"%(levelname)s","service":"api-transacoes","msg":"%(message)s"}'
-
 logging.basicConfig(
     level=os.getenv("LOG_LEVEL", "INFO"),
-    format=log_format,
-    handlers=[
-        logging.StreamHandler(),        # stdout (kubectl logs)
-        logging.FileHandler(LOG_FILE)   # arquivo para sidecar
-    ],
+    format='{"ts":"%(asctime)s","level":"%(levelname)s","service":"api-transacoes","msg":"%(message)s"}',
 )
-
 log = logging.getLogger("api-transacoes")
 
-# =========================
-# CONFIG
-# =========================
+POSTGRES_USER = os.getenv("POSTGRES_USER", "tipsbank")
+POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "tipsbank")
+POSTGRES_HOST = os.getenv("POSTGRES_HOST", "postgres")
+POSTGRES_PORT = os.getenv("POSTGRES_PORT", "5432")
+POSTGRES_DB = os.getenv("POSTGRES_DB", "tipsbank")
+
+DB_URL = f"postgresql+psycopg://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
+
+"""
 DB_URL = os.getenv(
     "DB_URL",
     "postgresql+psycopg://tipsbank:tipsbank@postgres:5432/tipsbank",
 )
+"""
+
 CONTAS_URL = os.getenv("CONTAS_URL", "http://api-contas:8080")
 AUDITORIA_URL = os.getenv("AUDITORIA_URL", "http://auditoria:8080")
 APP_VERSION = os.getenv("APP_VERSION", "v1")
@@ -52,9 +45,7 @@ engine = create_engine(DB_URL, pool_pre_ping=True, pool_size=5, max_overflow=10)
 SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 Base = declarative_base()
 
-# =========================
-# MODELOS
-# =========================
+
 class Transacao(Base):
     __tablename__ = "transacoes"
     id = Column(String, primary_key=True)
@@ -81,27 +72,22 @@ class TransacaoOut(BaseModel):
     class Config:
         from_attributes = True
 
-# =========================
-# METRICAS
-# =========================
+
 req_counter = Counter("http_requests_total", "Total de requisições HTTP", ["method", "path", "status"])
 req_latency = Histogram("http_request_duration_seconds", "Latência", ["path"])
 tx_counter = Counter("transacoes_total", "Transacoes executadas", ["status"])
 
-# =========================
-# LIFECYCLE
-# =========================
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     log.info(f"bootstrap versao={APP_VERSION}")
     Base.metadata.create_all(engine)
     yield
 
+
 app = FastAPI(title="TipsBank — Transacoes", lifespan=lifespan)
 
-# =========================
-# MIDDLEWARE
-# =========================
+
 @app.middleware("http")
 async def obs(request, call_next):
     start = time.time()
@@ -111,15 +97,11 @@ async def obs(request, call_next):
     resp.headers["X-App-Version"] = APP_VERSION
     return resp
 
-# =========================
-# DB
-# =========================
+
 def db() -> Session:
     return SessionLocal()
 
-# =========================
-# HEALTH
-# =========================
+
 @app.get("/health/live")
 def live():
     return {"status": "ok", "version": APP_VERSION}
@@ -140,23 +122,18 @@ def ready():
 def startup():
     return {"status": "started"}
 
-# =========================
-# METRICS
-# =========================
+
 @app.get("/metrics")
 def metrics():
     return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
-# =========================
-# TRANSFERENCIA
-# =========================
+
 @app.post("/transferencias", response_model=TransacaoOut, status_code=201)
 def transferir(payload: TransferenciaIn):
     tx_id = str(uuid.uuid4())
     s = db()
     try:
         log.info(f"transferencia id={tx_id} origem={payload.origem_id} destino={payload.destino_id} valor={payload.valor}")
-
         with httpx.Client(timeout=5.0) as client:
             r = client.post(
                 f"{CONTAS_URL}/contas/{payload.origem_id}/saldo",
@@ -207,13 +184,10 @@ def transferir(payload: TransferenciaIn):
 
         tx_counter.labels("ok").inc()
         return tx
-
     finally:
         s.close()
 
-# =========================
-# CONSULTAS
-# =========================
+
 @app.get("/transferencias/{tx_id}", response_model=TransacaoOut)
 def obter(tx_id: str):
     s = db()

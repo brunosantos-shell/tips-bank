@@ -1,0 +1,84 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-transacoes
+  namespace: tipsbank-transacoes
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: api-transacoes
+
+  template:
+    metadata:
+      labels:
+        app: api-transacoes
+
+    spec:
+      securityContext:
+        fsGroup: 65532
+
+      containers:
+
+      # =========================
+      # APP PRINCIPAL
+      # =========================
+      - name: api-transacoes
+        image: ghcr.io/brunosantostecinf-shell/tipsbank-api-transacoes:v1.0.2
+        imagePullPolicy: IfNotPresent
+
+        ports:
+        - containerPort: 8080
+
+        env:
+        - name: DB_URL
+          valueFrom:
+            secretKeyRef:
+              name: transacoes-secret
+              key: DB_URL
+
+        - name: CONTAS_URL
+          valueFrom:
+            configMapKeyRef:
+              name: transacoes-config
+              key: CONTAS_URL
+
+        - name: AUDITORIA_URL
+          valueFrom:
+            configMapKeyRef:
+              name: transacoes-config
+              key: AUDITORIA_URL
+
+        volumeMounts:
+        - name: app-logs
+          mountPath: /var/log/app
+
+      # =========================
+      # SIDECAR LOG
+      # =========================
+      - name: log-forwarder
+        image: busybox:1.36
+
+        command:
+        - sh
+        - -c
+        - |
+          echo "Iniciando sidecar..."
+          mkdir -p /var/log/app
+          touch /var/log/app/app.log
+          tail -F /var/log/app/app.log
+
+        volumeMounts:
+        - name: app-logs
+          mountPath: /var/log/app
+
+      # =========================
+      # VOLUME
+      # =========================
+      volumes:
+      - name: app-logs
+        emptyDir: {}
+
+      imagePullSecrets:
+      - name: registry-secret
+
