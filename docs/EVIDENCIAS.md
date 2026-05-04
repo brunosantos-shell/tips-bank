@@ -103,8 +103,6 @@ Execução de transferência no valor de R$ 100,00 entre contas distintas via AP
 - ✔ Testes automatizados executados com sucesso  
 - ✔ Fluxo de ponta a ponta validado entre frontend e microserviços  
 
----
-
 ### **Etapa 1.2 Build Distroless, Scan com Trivy e Assinatura Cosign**
 
 ### Objetivo da Etapa
@@ -116,11 +114,7 @@ Construir 4 imagens de container do projeto TipsBank, sendo 3 APIs utilizando ru
 - Execução com usuário não-root
 - Tamanho final dentro dos critérios definidos
 
----
-
 ### 1. Build das Imagens
-
-### Descrição
 
 Foi realizado o build das imagens das aplicações TipsBank:
 
@@ -132,8 +126,6 @@ Foi realizado o build das imagens das aplicações TipsBank:
 As APIs utilizam Dockerfile multi-stage, separando a etapa de build da etapa de runtime. No builder é utilizada uma imagem Python com ferramentas de compilação, enquanto no runtime é utilizada imagem Distroless, reduzindo a superfície de ataque.
 
 - 📄 Log: [build-cosing.txt](../evidencias/semana-1/etapa-1.2/build-cosing.txt)
-
----
 
 ### 2. Justificativa Técnica do Uso de Distroless
 
@@ -249,7 +241,7 @@ Evidência:
 
 ### **Etapa 1.3 — Cluster Kubernetes kubeadm multi-node**
 
-## Objetivo da Etapa
+### Objetivo da Etapa
 
 Provisionar um cluster Kubernetes com:
 
@@ -260,23 +252,14 @@ Provisionar um cluster Kubernetes com:
 
 Garantindo o funcionamento do cluster e a capacidade de agendamento de workloads.
 
----
-
 ### 1. Provisionamento das Máquinas
-
-### Descrição
 
 Foram provisionadas 3 máquinas Linux (Ubuntu 24.10), sendo:
 
 - 1 nó control-plane
 - 2 nós workers
 
-
----
-
 ### 2. Instalação dos Componentes Kubernetes
-
-### Descrição
 
 Em todos os nós foram instalados:
 
@@ -293,7 +276,7 @@ Também foram aplicadas configurações obrigatórias:
 
 ### 3. Inicialização do Control-Plane
 
-### Comando executado:
+Comando executado:
 
 ```bash
 kubeadm init --pod-network-cidr=<CIDR_DO_CNI>
@@ -364,3 +347,294 @@ Foram validados:
 - Comunicação entre nós
 - Funcionamento da rede (CNI)
 - Execução e agendamento de workloads
+
+---
+
+### **Etapa 1.4 — Namespaces, Deployments iniciais e Services**
+
+### Objetivo da Etapa
+
+Implantar os componentes da aplicação TipsBank no Kubernetes utilizando:
+
+- Namespaces separados por domínio
+- Deployments para APIs e frontend
+- StatefulSet para o banco de dados (Postgres)
+- Services internos (ClusterIP)
+- Acesso temporário via port-forward (sem ingress)
+
+### 1. Criação dos Namespaces
+
+Foram criados namespaces separados para organização dos componentes da aplicação:
+
+- tipsbank-contas  
+- tipsbank-transacoes  
+- tipsbank-auditoria  
+- tipsbank-web  
+
+
+```bash
+kubectl create ns tipsbank-contas
+kubectl create ns tipsbank-transacoes
+kubectl create ns tipsbank-auditoria
+kubectl create ns tipsbank-web
+```
+
+- 🖼️ Namespaces criados: `namespaces.png`
+
+![alt text](../evidencias/semana-1/etapa1.4/namespaces.png)
+
+- 📄Log evidencias-01-namespaces.txt [evidencias-01-namespaces.txt](../evidencias/semana-1/etapa1.4/evidencias-01-namespaces.txt)
+
+
+
+### 2. Configuração de Secret e ConfigMap
+
+Foram configurados:
+
+- Secret (Opaque) para credenciais do banco de dados (DB)
+- ConfigMap para variáveis de configuração e URLs das APIs
+
+- 🖼️ Secret criado: `secret-db.png`
+
+![alt text](../evidencias/semana-1/etapa1.4/secret-db.png)
+
+- 🖼️ ConfigMap aplicado: `configmap-app.png`
+
+![alt text](../evidencias/semana-1/etapa1.4/configmap-app.png)
+
+- 🖼️ Describe do Configmap:
+
+![alt text](../evidencias/semana-1/etapa1.4/configmap-app-describe-01.png)
+![alt text](../evidencias/semana-1/etapa1.4/configmap-app-describe-02.png)
+![alt text](../evidencias/semana-1/etapa1.4/configmap-app-describe-03.png)
+
+### 3. Deploy do Postgres (StatefulSet)
+
+O banco de dados foi implantado como StatefulSet no namespace tipsbank-contas com:
+
+- 1 réplica
+- PVC de 2Gi
+- Headless Service
+- Script init.sql montado via ConfigMap em /docker-entrypoint-initdb.d/
+
+- 🖼️ StatefulSet Postgres: postgres-sts.png
+
+![alt text](../evidencias/semana-1/etapa1.4/postgres-sts.png)
+
+### 4. Deploy das Aplicações (APIs + Frontend)
+
+Foram implantadas as aplicações do TipsBank utilizando Deployments com 2 réplicas cada:
+
+- api-contas (namespace: tipsbank-contas)  
+- api-transacoes (namespace: tipsbank-transacoes)  
+- auditoria (namespace: tipsbank-auditoria)  
+- web (namespace: tipsbank-web)  
+
+Todas as aplicações foram expostas via Services do tipo ClusterIP.
+
+O frontend (nginx) foi configurado com proxy reverso para comunicação com as APIs utilizando FQDN interno entre namespaces:
+
+- api-contas.tipsbank-contas.svc.cluster.local:8080  
+- api-transacoes.tipsbank-transacoes.svc.cluster.local:8080  
+- auditoria.tipsbank-auditoria.svc.cluster.local:8080  
+
+- 🖼️ Pods das APIs: pods-apis.png
+
+![alt text](../evidencias/semana-1/etapa1.4/pods-apis.png)
+
+Comando usado pra validar os pods do tipsbank
+
+```bash
+kubectl get pods -A | grep tipsbank
+```
+
+### 5. Validação de Acesso via Port-Forward
+
+Foi utilizado o recurso de `port-forward` para validar o acesso às APIs e ao frontend diretamente a partir do ambiente local.
+
+
+```bash
+kubectl port-forward -n tipsbank-transacoes svc/api-transacoes 8080:8080
+
+kubectl port-forward -n tipsbank-web svc/web 8080:8080
+```
+
+- 🖼️ Teste da API via port-forward:
+
+![alt text](../evidencias/semana-1/etapa1.4/port-forward-transacoes.png)
+
+- 🖼️ SPA acessível via navegador:
+
+![alt text](../evidencias/semana-1/etapa1.4/web-spa.png)
+
+- 🖼️ Auditoria via frontend:
+
+![alt text](../evidencias/semana-1/etapa1.4/web-auditoria.png)
+
+### 6. Validação de imagePullSecrets
+
+Foi validado o uso de `imagePullSecrets` para autenticação em registry privado durante o pull das imagens.
+
+```bash
+kubectl get secret -n tipsbank-contas
+kubectl describe pod <pod> -n tipsbank-contas
+```
+- 🖼️ ImagePull Secret:
+
+![alt text](../evidencias/semana-1/etapa1.4/imagepull-secrets.png)
+
+[imagepullsecrets-pods.txt](../evidencias/semana-1/etapa1.4/imagepullsecrets-pods.txt)
+
+### 7. Referência dos Manifestos Kubernetes (YAML)
+
+Os seguintes manifestos foram utilizados na configuração desta etapa:
+
+- [00-namespaces.yaml](../k8s/etapa-1.4/00-namespaces.yaml) 
+- [01-registry-secret.sh](../k8s/etapa-1.4/01-registry-secret.sh) 
+- [02-secret-db.yaml](../k8s/etapa-1.4/02-secret-db.yaml) 
+- [03-configmap-app.yaml](../k8s/etapa-1.4/03-configmap-app.yaml) 
+- [04-postgres.yaml](../k8s/etapa-1.4/04-postgres.yaml) 
+- [05-api-contas.yaml](../k8s/etapa-1.4/05-api-contas.yaml) 
+- [06-api-transacoes.yaml](../k8s/etapa-1.4/06-api-transacoes.yaml) 
+- [07-auditoria.yaml](../k8s/etapa-1.4/07-auditoria.yaml) 
+- [08-web.yaml](../k8s/etapa-1.4/08-web.yaml)
+
+### Conclusão
+
+- ✔ Estrutura do ambiente organizada por namespaces, garantindo isolamento lógico entre os domínios da aplicação  
+- ✔ Banco de dados implantado via StatefulSet com persistência (PVC) e inicialização automatizada via script `init.sql`  
+- ✔ APIs e frontend implantados com Deployments escaláveis (2 réplicas), assegurando alta disponibilidade  
+- ✔ Serviços expostos via ClusterIP com comunicação interna validada através de DNS do Kubernetes (Service Discovery)  
+- ✔ Integração entre frontend e backend validada por meio de proxy reverso (nginx) utilizando FQDN inter-namespace  
+- ✔ Acesso externo temporário realizado com sucesso via port-forward para APIs e aplicação web  
+- ✔ Funcionalidades da aplicação validadas ponta a ponta (login, transferência e auditoria)  
+- ✔ Externalização de configurações e credenciais aplicada corretamente via ConfigMap e Secret  
+- ✔ Autenticação com registry privado validada através de `imagePullSecrets`  
+- ✔ Ambiente validado com todos os pods em estado Running e réplicas conforme esperado 
+
+---
+
+### **Etapa 1.5 — ConfigMap, Secret e Pod Multicontainer**
+
+### Objetivo da Etapa
+
+Transformar a aplicação `api-transacoes` em um pod multicontainer, utilizando:
+
+- Container principal (API)
+- Sidecar de logs
+- Volume compartilhado (emptyDir)
+- ConfigMap para configurações
+- Secret para dados sensíveis
+
+### 1. Configuração de Variáveis via ConfigMap e Secret
+
+Foram separadas as configurações da aplicação em:
+
+- **ConfigMap**
+  - URLs de serviços (CONTAS_URL, AUDITORIA_URL)
+
+- **Secret (Opaque)**
+  - Credenciais sensíveis (DB_URL)
+
+As variáveis foram injetadas no container via:
+
+- `configMapKeyRef`
+- `secretKeyRef`
+
+- 🖼️ Variáveis no pod: `env-config-secret.png`
+
+![alt text](../evidencias/semana-1/etapa-1.5/env-config-secret.png)
+
+### 2. Implementação do Pod Multicontainer
+
+O pod `api-transacoes` foi configurado com dois containers:
+
+- **Container principal**
+  - Responsável pela API
+- **Container sidecar (log-forwarder)**
+  - Responsável por ler e exibir logs da aplicação
+
+- 🖼️ Pods Multicontainer : `pod-multicontainer.png`
+
+![alt text](../evidencias/semana-1/etapa-1.5/pod-multicontainer.png)
+
+### 3. Configuração do Volume Compartilhado (emptyDir)
+
+Foi criado um volume `emptyDir` compartilhado entre os containers:
+
+- Montado em `/var/log/app`
+- Utilizado para persistência temporária de logs
+
+Foi necessário alterar o código da aplicação (`main.py`) para que os logs fossem gravados em arquivo, além do stdout.
+
+A aplicação passou a utilizar:
+
+- `StreamHandler` → saída padrão (kubectl logs)
+- `FileHandler` → arquivo `/var/log/app/app.log` (consumido pelo sidecar)
+
+- 🖼️ Código ajustado: `main-logging.png`
+
+![alt text](../evidencias/semana-1/etapa-1.5/main-logging.png)
+
+- API escreve logs em `/var/log/app/app.log`
+- Sidecar lê o mesmo arquivo com `tail -F`
+
+### 4. Implementação do Sidecar de Logs
+
+Foi adicionado um container sidecar utilizando imagem (busybox), executando:
+
+```bash
+tail -F /var/log/app/app.log
+```
+
+🖼️ Logs do sidecar: `sidecar-log.png`
+![alt text](../evidencias/semana-1/etapa-1.5/sidecar-log.png)
+
+### 5. Validação do Deployment
+
+```bash
+kubectl get pods -n tipsbank-transacoes
+```
+
+- 🖼️ Pods em execução: `pod-multicontainer.png`
+
+![alt text](../evidencias/semana-1/etapa-1.5/pod-multicontainer.png)
+
+### 6. Validação Funcional (Aplicação)
+
+
+Foi realizada uma operação de transferência via aplicação para validar:
+
+- Escrita de logs
+- Funcionamento do sidecar
+- Integração entre serviços
+
+- 🖼️ Transferência realizada: `transferencia-ok.png`
+
+![alt text](../evidencias/semana-1/etapa-1.5/transferencia-ok.png)
+
+- 🖼️ Logs da aplicação: `logs-app.png`
+
+![alt text](../evidencias/semana-1/etapa-1.5/logs-app.png)
+
+### 7. Referência dos Manifestos Kubernetes (YAML)
+
+Os seguintes manifestos foram utilizados na configuração desta etapa:
+
+- 📄 ConfigMap:
+[01-configmap-transacoes](../k8s/etapa-1.5/01-configmap-transacoes.yaml)
+- 📄 Secret: [02-secret-transacoes.yaml](../k8s/etapa-1.5/02-secret-transacoes.yaml)
+- 📄 Deployment:
+[03-api-transacoes-multicontainer.yaml](../k8s/etapa-1.5/03-api-transacoes-multicontainer.yaml)
+
+## Conclusão
+
+- ✔ Configuração de variáveis externalizada via ConfigMap e Secret  
+- ✔ Nenhuma informação sensível exposta no Deployment  
+- ✔ Pod configurado em arquitetura multicontainer (API + sidecar)  
+- ✔ Volume compartilhado (emptyDir) implementado com sucesso  
+- ✔ Ajuste na aplicação para gravação de logs em arquivo (`/var/log/app/app.log`)  
+- ✔ Logs disponíveis via stdout e via arquivo compartilhado  
+- ✔ Pods em estado Running com todos containers ativos  
+- ✔ Fluxo funcional validado (transferência executada com sucesso)  
+- ✔ Logs da aplicação capturados corretamente pelo sidecar 
