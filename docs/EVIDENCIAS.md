@@ -4,6 +4,8 @@
 **Data:** 02/05/2026  
 **Responsável:** Bruno dos Santos
 
+---
+
 ### **Etapa 1.1 Entender a aplicação localmente** 
 
 ### Objetivo da Etapa
@@ -687,6 +689,12 @@ kubectl exec -n tipsbank-auditoria <pod-2> -- ls /data
 
 Como as imagens Chainguard (latest) não possuem shell (sh), foi necessário utilizar kubectl debug para execução de comandos interativos:
 
+Para aprofundamento, foi utilizada a documentação oficial da Chainguard:
+
+- 📚 https://edu.chainguard.dev/chainguard/chainguard-images/troubleshooting/kubectl_cdebug/
+
+As imagens `latest` não possuem utilitários interativos (como `/bin/sh`), sendo necessário utilizar imagens `-dev` para debug, como:
+
 ```bash
 kubectl debug -it -n tipsbank-auditoria \
 --image cgr.dev/chainguard/python:latest-dev \
@@ -802,3 +810,12 @@ chown -R 65532:65532 /opt/WORKLOADS
   - Auditoria escrevendo simultaneamente a partir de múltiplas réplicas  
   - Consistência dos dados validada em cenário de concorrência  
 
+---
+
+# Evidências Semana 2
+**Projeto:** TipsBank  
+**Objetivo da semana:** Expor o TipsBank ao mundo via Ingress Nginx com TLS, replicar a app no EKS, e aplicar NetworkPolicies zero-trust entre namespaces.
+**Data:** 04/05/2026  
+**Responsável:** Bruno dos Santos
+
+### **Etapa 2.1 Ingress Nginx + múltiplos hosts** 
