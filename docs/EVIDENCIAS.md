@@ -712,7 +712,7 @@ pod/<pod> -- /bin/sh
 
 ### 6. Validação de Consistência dos Eventos
 
-Foram realizadas aproximadamente 50 transferências para validar concorrência atrave do script [valida-transferencias-nfs.sh](../scripts/valida-transferencias-nfs.sh)
+Foram realizadas aproximadamente 50 transferências para validar concorrência atraves do script [valida-transferencias-nfs.sh](../scripts/valida-transferencias-nfs.sh)
 
 ```bash
  kubectl port-forward -n tipsbank-auditoria svc/auditoria 8083:8080 &
@@ -736,6 +736,10 @@ done
 
 kill -9 %1
 ```
+
+- 🖼️ Auditoria na dashboard web: `auditoria-web.png`
+
+![alt text](../evidencias/semana-1/etapa-1.6/auditoria-web.png)
 
 Contagem de linhas no arquivo /data/eventos-YYYY-MM-DD.jsonl
 
