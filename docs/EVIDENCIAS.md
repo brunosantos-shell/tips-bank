@@ -1,4 +1,4 @@
-# Evidências Semana 1 / 
+# Evidências Semana 1
 **Projeto:** TipsBank  
 **Objetivo da Etapa:** Entender a aplicação localmente rodando via docker-compose  
 **Data:** 02/05/2026  
@@ -638,3 +638,167 @@ Os seguintes manifestos foram utilizados na configuração desta etapa:
 - ✔ Pods em estado Running com todos containers ativos  
 - ✔ Fluxo funcional validado (transferência executada com sucesso)  
 - ✔ Logs da aplicação capturados corretamente pelo sidecar 
+
+---
+
+### **Etapa 1.6 — Persistência com NFS (ReadWriteMany) para Auditoria**
+
+## Objetivo da Etapa
+
+Configurar persistência compartilhada para o serviço de auditoria utilizando NFS, permitindo que múltiplas réplicas escrevam simultaneamente em um mesmo volume (RWX).
+
+### 1. Provisionamento do Servidor NFS
+
+Foi provisionado um servidor NFS para disponibilizar armazenamento compartilhado dentro do cluster.
+
+### 2. Criação do PersistentVolume (PV)
+
+Foi criado um PersistentVolume do tipo NFS apontando para o servidor configurado.
+
+### 3. Criação do PersistentVolumeClaim (PVC)
+
+Foi criado um PVC no namespace `tipsbank-auditoria` com suporte a múltiplos writers:
+
+- accessModes: ReadWriteMany
+
+### 4. Atualização do Deployment da Auditoria
+
+O Deployment da auditoria foi atualizado para:
+
+- Montar o PVC em `/data`
+- Permitir persistência compartilhada entre réplicas
+
+Além disso, o Deployment foi escalado para 3 réplicas.
+
+- 🖼️ Deployment atualizado: `deployment-auditoria.png`
+
+![alt text](../evidencias/semana-1/etapa-1.6/deployment-auditoria.png)
+
+### 5. Execução de Testes de Escrita Concorrente
+
+Foram realizadas múltiplas transferências para gerar eventos simultâneos.
+
+Os arquivos foram inspecionados em múltiplos pods.
+
+```bash
+kubectl exec -n tipsbank-auditoria <pod-1> -- ls /data
+kubectl exec -n tipsbank-auditoria <pod-2> -- ls /data
+```
+
+Como as imagens Chainguard (latest) não possuem shell (sh), foi necessário utilizar kubectl debug para execução de comandos interativos:
+
+```bash
+kubectl debug -it -n tipsbank-auditoria \
+--image cgr.dev/chainguard/python:latest-dev \
+--target auditoria \
+pod/<pod> -- /bin/sh
+```
+
+- 🖼️ Acesso via debug: `debug-container-chainguard.png`
+
+![alt text](../evidencias/semana-1/etapa-1.6/debug-container-chainguard.png)
+
+- 🖼️ Arquivos em /data: `nfs-files.png`
+
+![alt text](../evidencias/semana-1/etapa-1.6/nfs-files.png)
+
+### 6. Validação de Consistência dos Eventos
+
+Foram realizadas aproximadamente 50 transferências para validar concorrência atrave do script [valida-transferencias-nfs.sh](../scripts/valida-transferencias-nfs.sh)
+
+```bash
+ kubectl port-forward -n tipsbank-auditoria svc/auditoria 8083:8080 &
+
+for i in $(seq -w 1 50); do
+  UUID_TX=$(uuidgen)
+  VALOR=$(awk -v min=0.10 -v max=5 'BEGIN{srand(); printf "%.2f", min+rand()*(max-min)}')
+
+  curl -s -X POST http://localhost:8083/eventos \
+    -H "Content-Type: application/json" \
+    -d "{
+      \"tipo\":\"transferencia\",
+      \"transacao_id\":\"$i-$UUID_TX\",
+      \"origem_id\":\"22222222-2222-2222-2222-222222222222\",
+      \"destino_id\":\"11111111-1111-1111-1111-111111111111\",
+      \"valor\":\"$VALOR\",
+      \"versao_app\":\"v1\"
+    }" &
+
+done
+
+kill -9 %1
+```
+
+Contagem de linhas no arquivo /data/eventos-YYYY-MM-DD.jsonl
+
+- 🖼️ Validação dos dados no NFS-SERVER: `auditoria-nfs-server.png`
+
+![alt text](../evidencias/semana-1/etapa-1.6/auditoria-nfs-server.png)
+
+### 7. Considerações sobre Locking (NFS)
+
+A aplicação realiza escrita com open("a"), o que depende de suporte a locking no NFS.
+
+
+### 8. Validação de PV e PVC
+
+```bash
+kubectl get pv,pvc -A
+```
+
+- 🖼️ PV e PVC: `pv-pvc-bound.png`
+
+![alt text](../evidencias/semana-1/etapa-1.6/pv-pvc-bound.png)
+
+### 9. Referência dos Manifestos Kubernetes (YAML)
+- 📄 PV: [pv-auditoria-nfs.yaml](../k8s/etapa-1.6/pv-auditoria-nfs.yaml)
+- 📄 PVC: [pvc-auditoria-nfs.yaml](../k8s/etapa-1.6/pvc-auditoria-nfs.yaml)
+- 📄 Deployment atualizado: [auditoria-nfs.yaml](../k8s/etapa-1.6/auditoria-nfs.yaml)
+
+### Ajuste de permissões no NFS
+
+Durante os testes, foi identificado que a aplicação de auditoria executa dentro do container com usuário não-root, utilizando UID `65532`.
+
+Para permitir a escrita dos eventos no volume compartilhado, foi necessário ajustar as permissões do diretório exportado pelo NFS para o mesmo UID/GID utilizado pelo container.
+
+### Ajuste aplicado no servidor NFS:
+
+```bash
+chown -R 65532:65532 /opt/WORKLOADS
+```
+
+## Conclusão
+
+- ✔ Persistência compartilhada implementada com sucesso utilizando NFS (ReadWriteMany)  
+- ✔ Volume montado simultaneamente em múltiplas réplicas da aplicação de auditoria  
+- ✔ Escrita concorrente validada, com múltiplos pods registrando eventos no mesmo arquivo  
+- ✔ Consistência dos dados confirmada após execução de múltiplas transações  
+- ✔ PV e PVC corretamente configurados e em estado Bound  
+- ✔ Integração do armazenamento com o Deployment da auditoria validada  
+- ✔ Uso de `kubectl debug` aplicado para inspeção interna dos containers devido à ausência de shell em imagens distroless  
+- ✔ Nenhum conflito de escrita observado, indicando suporte adequado a locking no NFS utilizado  
+- ✔ Permissões do NFS ajustadas para o UID/GID `65532`, permitindo escrita segura por containers não-root  
+
+## Checkpoint — Semana 1
+
+- ✔ Cluster Kubernetes provisionado com kubeadm (1 control-plane + 2 workers) em estado Ready  
+
+- ✔ Imagens de container construídas com padrão Distroless  
+  - 0 vulnerabilidades HIGH/CRITICAL (validadas com Trivy)  
+  - Assinadas com Cosign  
+
+- ✔ Aplicação implantada em Kubernetes com arquitetura distribuída:  
+  - 4 Deployments (api-contas, api-transacoes, auditoria, web)  
+  - 1 StatefulSet (Postgres)  
+  - Organização em 4 namespaces isolados  
+
+- ✔ Configuração externalizada e segura:  
+  - Uso de ConfigMap e Secret  
+  - Pod multicontainer com sidecar de logs  
+  - Volume EmptyDir para compartilhamento interno  
+
+- ✔ Persistência avançada implementada:  
+  - NFS configurado como armazenamento compartilhado (RWX)  
+  - Auditoria escrevendo simultaneamente a partir de múltiplas réplicas  
+  - Consistência dos dados validada em cenário de concorrência  
+

@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-tipsbank-auditoria-nfs
+  namespace: tipsbank-auditoria
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: nfs-auditoria
+  resources:
+    requests:
+      storage: 5Gi
