@@ -1,0 +1,25 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress-auditoria
+  namespace: tipsbank-auditoria
+  annotations:
+    cert-manager.io/cluster-issuer: tipsbank-selfsigned
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - api.tipsbank.local
+      secretName: api-auditoria-tipsbank-tls
+  rules:
+    - host: api.tipsbank.local
+      http:
+        paths:
+          - path: /auditoria(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: auditoria
+                port:
+                  number: 8080

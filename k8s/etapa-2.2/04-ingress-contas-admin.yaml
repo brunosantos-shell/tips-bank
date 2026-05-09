@@ -1,0 +1,29 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress-contas-admin
+  namespace: tipsbank-contas
+  annotations:
+    cert-manager.io/cluster-issuer: tipsbank-selfsigned
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    nginx.ingress.kubernetes.io/auth-type: basic
+    nginx.ingress.kubernetes.io/auth-secret: basic-auth
+    nginx.ingress.kubernetes.io/auth-realm: "TipsBank Admin"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - api.tipsbank.local
+      secretName: api-contas-admin-tipsbank-tls
+  rules:
+    - host: api.tipsbank.local
+      http:
+        paths:
+          - path: /contas/admin(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: api-contas
+                port:
+                  number: 8080
+

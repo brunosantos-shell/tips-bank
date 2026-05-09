@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress-web
+  namespace: tipsbank-web
+  annotations:
+    cert-manager.io/cluster-issuer: tipsbank-selfsigned
+    nginx.ingress.kubernetes.io/limit-rps: "50"
+    nginx.ingress.kubernetes.io/limit-burst-multiplier: "1"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - app.tipsbank.local
+      secretName: app-tipsbank-tls
+  rules:
+    - host: app.tipsbank.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: web
+                port:
+                  number: 8080

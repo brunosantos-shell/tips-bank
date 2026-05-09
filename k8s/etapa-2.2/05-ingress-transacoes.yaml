@@ -1,0 +1,27 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress-transacoes
+  namespace: tipsbank-transacoes
+  annotations:
+    cert-manager.io/cluster-issuer: tipsbank-selfsigned
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    nginx.ingress.kubernetes.io/affinity: cookie
+    nginx.ingress.kubernetes.io/session-cookie-name: tipsbank-transacoes
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - api.tipsbank.local
+      secretName: api-transacoes-tipsbank-tls
+  rules:
+    - host: api.tipsbank.local
+      http:
+        paths:
+          - path: /transacoes(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: api-transacoes
+                port:
+                  number: 8080
