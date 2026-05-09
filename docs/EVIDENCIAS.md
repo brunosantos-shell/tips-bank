@@ -816,10 +816,4 @@ chown -R 65532:65532 /opt/WORKLOADS
 
 ---
 
-# Evidências Semana 2
-**Projeto:** TipsBank  
-**Objetivo da semana:** Expor o TipsBank ao mundo via Ingress Nginx com TLS, replicar a app no EKS, e aplicar NetworkPolicies zero-trust entre namespaces.
-**Data:** 04/05/2026  
-**Responsável:** Bruno dos Santos
 
-### **Etapa 2.1 Ingress Nginx + múltiplos hosts** 

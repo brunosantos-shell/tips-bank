@@ -1,0 +1,20 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress-contas
+  namespace: tipsbank-contas
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: api.tipsbank.local
+      http:
+        paths:
+          - path: /contas(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: api-contas
+                port:
+                  number: 8080
