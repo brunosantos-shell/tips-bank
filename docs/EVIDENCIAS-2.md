@@ -586,6 +586,16 @@ Os seguintes manifestos foram ajustados para execução no EKS:
 - 📄 Segurança:
   - [07-basic-auth-secret.yaml](../k8s/etapa-2.3/07-basic-auth-secret.yaml)
 
+## 15. Destruição do Cluster (Otimização de Custos)
+
+Após os testes e validações, o cluster EKS foi removido para evitar custos desnecessários na AWS.
+
+### Comando utilizado:
+
+```bash
+eksctl delete cluster --name tipsbank
+```
+
 ### Conclusão
 
 - ✔ Cluster EKS provisionado com sucesso utilizando EKSCTL
