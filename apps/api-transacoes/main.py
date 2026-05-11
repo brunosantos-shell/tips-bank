@@ -46,7 +46,7 @@ DB_URL = os.getenv(
 )
 CONTAS_URL = os.getenv("CONTAS_URL", "http://api-contas:8080")
 AUDITORIA_URL = os.getenv("AUDITORIA_URL", "http://auditoria:8080")
-APP_VERSION = os.getenv("APP_VERSION", "v1")
+APP_VERSION = os.getenv("APP_VERSION", "v2")
 
 engine = create_engine(DB_URL, pool_pre_ping=True, pool_size=5, max_overflow=10)
 SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)

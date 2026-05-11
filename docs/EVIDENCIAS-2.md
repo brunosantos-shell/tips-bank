@@ -590,8 +590,6 @@ Os seguintes manifestos foram ajustados para execução no EKS:
 
 Após os testes e validações, o cluster EKS foi removido para evitar custos desnecessários na AWS.
 
-### Comando utilizado:
-
 ```bash
 eksctl delete cluster --name tipsbank
 ```
@@ -610,3 +608,167 @@ eksctl delete cluster --name tipsbank
 - ✔ Basic Auth operacional no ambiente EKS
 - ✔ Aplicação acessível externamente via HTTPS com domínio público
 - ✔ Critérios de aceite atendidos integralmente
+
+---
+
+### **Etapa 2.4 — Canary de Transações**
+
+### Objetivo da Etapa
+
+Publicar a versão `v2` da `api-transacoes` e rotear parte do tráfego via Canary Ingress, mantendo a versão `v1` como principal.
+
+O objetivo é validar:
+
+- Deploy paralelo da versão `v2`
+- Roteamento gradual via Ingress Canary
+- Split aproximado de tráfego entre `v1` e `v2`
+- Rollout e rollback funcionais
+- Assinatura da imagem com Cosign
+
+### 1. Build, Push e Assinatura da Imagem v2
+
+Foi criada uma nova imagem da `api-transacoes` com a versão `v2.0.0`.
+
+Após o build e push para o registry, a imagem foi assinada utilizando Cosign.
+
+```bash
+docker build -t ghcr.io/brunosantostecinf-shell/tipsbank-api-transacoes:v2.0.0 apps/api-transacoes
+
+docker push ghcr.io/brunosantostecinf-shell/tipsbank-api-transacoes:v2.0.0
+
+cosign sign ghcr.io/brunosantostecinf-shell/tipsbank-api-transacoes:v2.0.0
+```
+
+- 🖼️ Assinatura da imagem v2:
+
+![alt text](../evidencias/semana-2/etapa-2.4/ass-cosign-image.png)
+
+### 2. Verificação da Assinatura com Cosign
+
+Foi realizada a validação da assinatura da imagem v2.0.0.
+
+```bash
+cosign verify \
+  --certificate-identity "https://github.com/login/oauth" \
+  --certificate-oidc-issuer "https://github.com/login/oauth" \
+  ghcr.io/brunosantostecinf-shell/tipsbank-api-transacoes:v2.0.0
+  
+  ```
+- 🖼️ Verificação da assinatura:
+
+![alt text](../evidencias/semana-2/etapa-2.4/verify-cosign-image.png)
+
+### 3. Deploy da api-transacoes v2
+
+Foi criado um segundo Deployment para a nova versão da aplicação:
+
+- Deployment: api-transacoes-v2
+- Namespace: tipsbank-transacoes
+- Label: version=v2
+
+A versão v1 permaneceu em execução no Deployment original.
+
+- 🖼️ Pods das versões v1 e v2:
+
+![alt text](../evidencias/semana-2/etapa-2.4/pods-v1-v2.png)
+
+### 4. Criação do Service da versão v2
+
+Foi criado um Service específico para direcionar tráfego aos pods com label version=v2.
+
+### 5. Configuração e Validação do Ingress Canary
+
+Foi criado um Ingress canário apontando para o Service da versão `v2` da aplicação `api-transacoes`.
+
+### Annotations aplicadas:
+
+```yaml
+nginx.ingress.kubernetes.io/canary: "true"
+nginx.ingress.kubernetes.io/canary-weight: "10"
+```
+O Ingress canário utiliza o mesmo host da API principal:
+
+- api.tipsbank.local
+
+Após a configuração, foram disparadas 1000 requisições para validar a distribuição de tráfego entre as versões v1 e v2.
+
+```bash
+for i in $(seq 1 1000); do
+  curl -sk https://api.tipsbank.local/transacoes/health/live | jq -r .version
+done | sort | uniq -c
+```
+
+- 🖼️ Ingress principal e canário e Distribuição de Trafego:
+
+![alt text](../evidencias/semana-2/etapa-2.4/ingress-canary.png)
+
+Observação
+
+A distribuição observada não ficou próxima do esperado 90/10, indicando necessidade de ajuste fino na configuração do Ingress Canary, especialmente considerando possíveis impactos de:
+
+- Affinity Cookie
+- Múltiplos Ingresses
+- Cache de sessão
+- Sticky sessions
+
+### 6. Validação Manual das Versões
+
+Foram executadas chamadas manuais ao endpoint /transacoes/health/live para validar o retorno das versões.
+
+```bash
+curl -sk https://api.tipsbank.local/transacoes/health/live
+```
+
+- 🖼️ Retorno alternando entre v1 e v2:
+
+![alt text](../evidencias/semana-2/etapa-2.4/curl-transacoes.png)
+
+### 7. Validação de Rollout e Rollback
+
+```bash
+kubectl rollout history deployment/api-transacoes -n tipsbank-transacoes
+
+kubectl rollout history deployment/api-transacoes-v2 -n tipsbank-transacoes
+
+kubectl rollout status deployment/api-transacoes -n tipsbank-transacoes
+
+kubectl rollout status deployment/api-transacoes-v2 -n tipsbank-transacoes
+```
+
+- 🖼️ Rollout dos Deployments:
+
+![alt text](../evidencias/semana-2/etapa-2.4/rollout-deployments.png)
+
+### 8. Validação dos Pods e Labels
+
+Foi validado que os pods das versões v1 e v2 possuem labels distintas, permitindo roteamento correto pelos Services.
+
+```bash
+kubectl get pods -n tipsbank-transacoes -o wide --show-labels
+NAME                                 READY   STATUS    RESTARTS   AGE    IP             NODE            NOMINATED NODE   READINESS GATES   LABELS
+api-transacoes-6549f6cff4-8s2rs      2/2     Running   0          169m   10.10.76.149   worker-k8s-02   <none>           <none>            app=api-transacoes,pod-template-hash=6549f6cff4
+api-transacoes-6549f6cff4-jggpf      2/2     Running   0          169m   10.10.24.135   worker-k8s-01   <none>           <none>            app=api-transacoes,pod-template-hash=6549f6cff4
+api-transacoes-v2-84b756b4fb-fmcq6   2/2     Running   0          159m   10.10.76.154   worker-k8s-02   <none>           <none>            app=api-transacoes,pod-template-hash=84b756b4fb,version=v2
+api-transacoes-v2-84b756b4fb-nddx4   2/2     Running   0          158m   10.10.24.139   worker-k8s-01   <none>           <none>            app=api-transacoes,pod-template-hash=84b756b4fb,version=v2
+root@master-k8s:/opt/tips-bank/k8s/etapa-2.4#
+```
+
+### 9. Referência dos Manifestos Kubernetes (YAML)
+
+Os seguintes manifestos foram utilizados nesta etapa:
+
+- 📄 Deployment v2: [api-transacoes-v2.yaml](../k8s/etapa-2.4/deployment-api-transacoes-v2.yaml)
+- 📄 Service v2: [svc-api-transacoes-v2.yaml](../k8s/etapa-2.4/svc-api-transacoes-v2.yaml)
+- 📄 Ingress Canary: [ingress-transacoes-canary.yaml](../k8s/etapa-2.4/ingress-transacoes-canary.yaml)
+
+### Conclusão
+- ✔ Imagem api-transacoes:v2.0.0 criada, publicada e assinada com Cosign
+- ✔ Assinatura da imagem v2 validada com cosign verify
+- ✔ Deployment api-transacoes-v2 criado em paralelo ao Deployment - original
+- ✔ Service exclusivo para a versão v2 configurado por label
+- ✔ Ingress Canary criado utilizando o mesmo host da API principal
+- ✔ Canary configurado com peso de 10% para a versão v2
+- ✔ Endpoint /transacoes/health/live retornando versões v1 e v2
+- ✔ Rollout status e rollout history validados nos Deployments
+- ✔ Rollback possível via kubectl rollout undo
+- ⚠ A proporção observada nos testes ficou diferente do esperado 90/10, indicando necessidade de ajuste fino do Canary Ingress
