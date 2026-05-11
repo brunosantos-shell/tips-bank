@@ -1,0 +1,16 @@
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: tipsbank-letsencrypt-prod
+spec:
+  acme:
+    email: bruno.santos@bits.tec.br
+    server: https://acme-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      name: tipsbank-letsencrypt-prod-key
+    solvers:
+      - http01:
+          ingress:
+            class: nginx
+
+

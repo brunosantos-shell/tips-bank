@@ -1,0 +1,25 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress-contas
+  namespace: tipsbank-contas
+  annotations:
+    cert-manager.io/cluster-issuer: tipsbank-letsencrypt-prod
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - api.bits.tec.br
+      secretName: api-contas-bits-tec-br-tls
+  rules:
+    - host: api.bits.tec.br
+      http:
+        paths:
+          - path: /contas(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: api-contas
+                port:
+                  number: 8080

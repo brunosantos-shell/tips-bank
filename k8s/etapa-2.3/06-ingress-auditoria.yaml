@@ -1,0 +1,27 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress-auditoria
+  namespace: tipsbank-auditoria
+  annotations:
+    cert-manager.io/cluster-issuer: tipsbank-letsencrypt-prod
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - api.bits.tec.br
+      secretName: api-auditoria-bits-tec-br-tls
+
+  rules:
+    - host: api.bits.tec.br
+      http:
+        paths:
+          - path: /auditoria(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: auditoria
+                port:
+                  number: 8080
+
