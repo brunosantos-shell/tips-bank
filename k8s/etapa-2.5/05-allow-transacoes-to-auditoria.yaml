@@ -1,0 +1,45 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-from-transacoes
+  namespace: tipsbank-auditoria
+spec:
+  podSelector:
+    matchLabels:
+      app: auditoria
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: tipsbank-transacoes
+          podSelector:
+            matchLabels:
+              app: api-transacoes
+      ports:
+        - protocol: TCP
+          port: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-egress-to-auditoria
+  namespace: tipsbank-transacoes
+spec:
+  podSelector:
+    matchLabels:
+      app: api-transacoes
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: tipsbank-auditoria
+          podSelector:
+            matchLabels:
+              app: auditoria
+      ports:
+        - protocol: TCP
+          port: 8080

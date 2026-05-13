@@ -701,6 +701,7 @@ done | sort | uniq -c
 - 🖼️ Ingress principal e canário e Distribuição de Trafego:
 
 ![alt text](../evidencias/semana-2/etapa-2.4/ingress-canary.png)
+![alt text](../evidencias/semana-2/etapa-2.4/ingress-canary-distrib.png)
 
 Observação
 
@@ -771,4 +772,243 @@ Os seguintes manifestos foram utilizados nesta etapa:
 - ✔ Endpoint /transacoes/health/live retornando versões v1 e v2
 - ✔ Rollout status e rollout history validados nos Deployments
 - ✔ Rollback possível via kubectl rollout undo
-- ⚠ A proporção observada nos testes ficou diferente do esperado 90/10, indicando necessidade de ajuste fino do Canary Ingress
+
+---
+
+### **Etapa 2.5 — NetworkPolicy Zero-Trust**
+
+### Objetivo da Etapa
+
+Implementar políticas de segurança de rede utilizando `NetworkPolicy`, aplicando o conceito de Zero-Trust entre os namespaces da aplicação TipsBank.
+
+O objetivo foi:
+
+- Bloquear todo tráfego por padrão
+- Liberar apenas comunicações estritamente necessárias
+- Restringir comunicação entre aplicações
+- Validar isolamento entre namespaces
+- Restringir saída para IPs externos não autorizados
+
+### 1. Pré-requisos do Ambiente (CNI com suporte a NetworkPolicy)
+
+Foi validado o uso de um CNI compatível com `NetworkPolicy`.
+
+O ambiente utiliza Calico, permitindo aplicação de políticas de segurança de rede no cluster Kubernetes.
+
+### 2. Instalação do Kyverno
+
+Foi instalado o Kyverno para gerenciamento e validação de políticas no cluster.
+
+```bash
+helm repo add kyverno https://kyverno.github.io/kyverno/
+
+helm repo update
+
+helm install kyverno kyverno/kyverno -n kyverno --create-namespace
+```
+
+- 🖼️ Adição do repositório Kyverno:
+
+![Kyverno Repo](../evidencias/semana-2/etapa-2.5/kyverno-repo-add.png)
+
+- 🖼️ Instalação do Kyverno:
+
+![Kyverno Install](../evidencias/semana-2/etapa-2.5/kyverno-install.png)
+
+- 🖼️ Pods do Kyverno em execução:
+
+![Kyverno Pods](../evidencias/semana-2/etapa-2.5/kyverno-pods-running.png)
+
+### 3. Aplicação das NetworkPolicies Default-Deny
+
+Foram aplicadas políticas default-deny em todos os namespaces:
+
+- tipsbank-contas
+- tipsbank-transacoes
+- tipsbank-auditoria
+- tipsbank-web
+
+As políticas bloquearam:
+
+- Todo tráfego ingress
+- Todo tráfego egress
+
+Posteriormente foram criadas exceções específicas para comunicação necessária entre os serviços.
+
+### 4. Liberação de DNS (kube-dns)
+
+Foi liberado tráfego DNS TCP/UDP porta 53 para resolução de nomes internos do cluster.
+
+### 5. Liberação de Comunicação Entre Serviços
+
+Foram liberadas apenas as comunicações necessárias:
+
+- Ingress Controller → aplicações
+- api-transacoes → api-contas
+- api-transacoes → auditoria
+- api-contas → postgres
+- auditoria → nfs-server
+
+### 6. Validação das NetworkPolicies Aplicadas
+
+Foi realizada validação das políticas aplicadas no cluster.
+
+```bash
+kubectl get netpol -A
+```
+
+- 🖼️ NetworkPolicies aplicadas:
+
+![NetworkPolicies](../evidencias/semana-2/etapa-2.5/networkpolicies-list.png)
+
+### 7. Validação de Comunicação Permitida
+
+Foi validado que api-transacoes consegue acessar api-contas.
+
+```bash
+kubectl run debug-transacoes \
+  -n tipsbank-transacoes \
+  --rm -it \
+  --image=curlimages/curl \
+  --restart=Never \
+  --labels app=api-transacoes \
+  --command -- sh
+curl -m 5 http://api-contas.tipsbank-contas:8080/health/live
+```
+
+- 🖼️ Comunicação permitida:
+
+![Allowed Traffic](../evidencias/semana-2/etapa-2.5/allowed-traffic-api-contas.png)
+
+### 8. Validação de Comunicação Bloqueada
+
+Foi validado que auditoria NÃO consegue acessar api-contas, conforme esperado pela política Zero-Trust.
+
+```bash
+curl -m 5 http://api-contas.tipsbank-contas:8080
+```
+
+- 🖼️ Comunicação bloqueada:
+
+![Blocked Traffic](../evidencias/semana-2/etapa-2.5/blocked-traffic-auditoria.png)
+
+### 9. Validação de Bloqueio de Saída Externa
+
+Foi validado bloqueio de saída para IPs externos não autorizados.
+
+```bash
+curl -m 5 http://1.1.1.1
+
+curl -m 5 http://169.254.169.254
+```
+
+- 🖼️ Bloqueio de saída externa:
+
+![Blocked External Egress](../evidencias/semana-2/etapa-2.5/blocked-external-egress.png)
+
+### 10. Validação do DNS Interno
+
+Foi validado funcionamento do DNS interno do cluster após aplicação das policies.
+
+```bash
+kubectl run debug-dns -n tipsbank-transacoes --rm -it --image=curlimages/curl --restart=Never --command -- nslookup api-contas.tipsbank-contas.svc.cluster.local
+```
+
+- 🖼️ DNS interno funcionando:
+
+![DNS Resolution](../evidencias/semana-2/etapa-2.5/dns-resolution-ok.png)
+
+### 11. Validação de Acesso ao NFS
+
+Foi validado acesso do namespace auditoria ao servidor NFS.
+
+Também foi validado que outros namespaces NÃO possuem acesso ao NFS.
+
+```bash
+#Teste de SUCESSO no NFS
+kubectl run debug-auditoria \
+  -n tipsbank-auditoria \
+  --rm -it \
+  --image=nicolaka/netshoot \
+  --restart=Never \
+  --labels app=auditoria \
+  --command -- bash
+nc -vz 192.168.20.100 2049
+```
+
+- 🖼️ Acesso permitido ao NFS:
+
+![NFS Allowed](../evidencias/semana-2/etapa-2.5/nfs-access-allowed.png)
+
+```bash
+#Teste de BLOQUEIO a partir de outro namespace
+kubectl run debug-transacoes \
+  -n tipsbank-transacoes \
+  --rm -it \
+  --image=nicolaka/netshoot \
+  --restart=Never \
+  --labels app=api-transacoes \
+  --command -- bash
+nc -vz -w 5 192.168.20.100 2049
+```
+
+- 🖼️ Acesso bloqueado ao NFS:
+
+![NFS Blocked](../evidencias/semana-2/etapa-2.5/nfs-access-blocked.png)
+
+### 12. Referência dos Manifestos Kubernetes (YAML)
+
+Os seguintes manifestos foram utilizados na implementação das políticas Zero-Trust desta etapa:
+
+- 📄 [01-default-deny-all.yaml](../k8s/etapa-2.5/01-default-deny-all.yaml)
+- 📄 [02-allow-dns-all-namespaces.yaml](../k8s/etapa-2.5/02-allow-dns-all-namespaces.yaml)
+- 📄 [03-allow-ingress-controller-to-all-apps.yaml](../k8s/etapa-2.5/03-allow-ingress-controller-to-all-apps.yaml)
+- 📄 [04-allow-transacoes-to-contas.yaml](../k8s/etapa-2.5/04-allow-transacoes-to-contas.yaml)
+- 📄 [05-allow-transacoes-to-auditoria.yaml](../k8s/etapa-2.5/05-allow-transacoes-to-auditoria.yaml)
+- 📄 [06-allow-contas-to-postgres.yaml](../k8s/etapa-2.5/06-allow-contas-to-postgres.yaml)
+- 📄 [07-allow-auditoria-to-nfs.yaml](../k8s/etapa-2.5/07-allow-auditoria-to-nfs.yaml)
+- 📄 [08-allow-ingress.yaml](../k8s/etapa-2.5/08-allow-ingress.yaml)
+- 📄 [09-allow-web-to-apis.yaml](../k8s/etapa-2.5/09-allow-web-to-apis.yaml)
+
+### Conclusão
+
+- ✔ Estratégia Zero-Trust implementada com sucesso
+- ✔ Policies default-deny aplicadas em todos os namespaces
+- ✔ Comunicação entre serviços restrita apenas ao necessário
+- ✔ Resolução DNS preservada após aplicação das policies
+- ✔ Bloqueio de tráfego não autorizado validado
+- ✔ Bloqueio de saída externa funcionando corretamente
+- ✔ Segmentação entre namespaces validada
+- ✔ Acesso ao NFS restrito apenas ao namespace autorizado
+- ✔ Comunicação permitida entre APIs funcionando corretamente
+- ✔ Ambiente protegido utilizando NetworkPolicies com Calico
+
+---
+
+### Checkpoint — Semana 2
+- ✔ Ingress NGINX configurado com múltiplos hosts e HTTPS válido
+  - TLS funcional com certificados aplicados
+  - Roteamento por host e path funcionando corretamente
+  - Publicação segura dos serviços da aplicação
+- ✔ Recursos avançados de tráfego e autenticação implementados
+  - Rate limit configurado no Ingress NGINX
+  - Autenticação aplicada em endpoints protegidos
+  - Session Affinity via cookie funcionando corretamente
+- ✔ Cluster Amazon EKS provisionado paralelamente
+  - Aplicação implantada no ambiente AWS
+  - Comunicação e serviços validados no cluster gerenciado
+  - Compatibilidade da aplicação validada em ambiente cloud-native
+- ✔ Estratégia de Canary Release implementada no serviço de transações
+  - Deploy separado entre versões v1 e v2
+  - Distribuição de tráfego aproximada em 90/10
+  - Rollback funcional utilizando kubectl rollout undo
+  - Canary adicional via header X-Canary: true
+- ✔ Segurança de rede aplicada com modelo Zero-Trust
+  - NetworkPolicy default-deny configurada
+  - Controle explícito de ingress e egress entre namespaces
+  - Comunicação liberada apenas para serviços autorizados
+  - Bloqueio de tráfego não permitido validado em testes práticos
+- ✔ Namespaces protegidos por políticas de isolamento
+  - tipsbank-contas
+  - tipsbank-transacoes
+  - tipsbank-auditoria

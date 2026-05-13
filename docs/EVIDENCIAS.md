@@ -791,7 +791,9 @@ chown -R 65532:65532 /opt/WORKLOADS
 - ✔ Nenhum conflito de escrita observado, indicando suporte adequado a locking no NFS utilizado  
 - ✔ Permissões do NFS ajustadas para o UID/GID `65532`, permitindo escrita segura por containers não-root  
 
-## Checkpoint — Semana 1
+---
+
+### Checkpoint - Semana 1
 
 - ✔ Cluster Kubernetes provisionado com kubeadm (1 control-plane + 2 workers) em estado Ready  
 
@@ -814,6 +816,6 @@ chown -R 65532:65532 /opt/WORKLOADS
   - Auditoria escrevendo simultaneamente a partir de múltiplas réplicas  
   - Consistência dos dados validada em cenário de concorrência  
 
----
+
 
 
