@@ -17,7 +17,7 @@ spec:
         - name: registry-secret
       containers:
         - name: api-contas
-          image: ghcr.io/brunosantostecinf-shell/tipsbank-api-contas:v1.0.1
+          image: ghcr.io/brunosantostecinf-shell/tipsbank-api-contas:v1.0.2
           ports:
             - containerPort: 8080
           envFrom:

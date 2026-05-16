@@ -18,6 +18,20 @@ spec:
       securityContext:
         fsGroup: 65532
 
+      initContainers:
+      - name: init-log-dir
+        image: busybox:1.36
+        command:
+        - sh
+        - -c
+        - |
+          mkdir -p /var/log/app
+          touch /var/log/app/app.log
+          chmod -R 777 /var/log/app
+        volumeMounts:
+        - name: app-logs
+          mountPath: /var/log/app
+
       containers:
 
       # =========================

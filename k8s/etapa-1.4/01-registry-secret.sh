@@ -1,12 +1,39 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REGISTRY_SERVER="${REGISTRY_SERVER:-ghcr.io}"
-REGISTRY_USER="${REGISTRY_USER:-SEU_USUARIO}"
-REGISTRY_TOKEN="${REGISTRY_TOKEN:-SEU_TOKEN}"
-REGISTRY_EMAIL="${REGISTRY_EMAIL:-seu-email@dominio.com}"
+ENV_FILE="$(dirname "$0")/registry.env"
 
-for NS in tipsbank-contas tipsbank-transacoes tipsbank-auditoria tipsbank-web; do
+if [[ ! -f "$ENV_FILE" ]]; then
+  echo "Arquivo $ENV_FILE não encontrado."
+  exit 1
+fi
+
+set -a
+source "$ENV_FILE"
+set +a
+
+: "${REGISTRY_SERVER:?REGISTRY_SERVER não definido}"
+: "${REGISTRY_USER:?REGISTRY_USER não definido}"
+: "${REGISTRY_TOKEN:?REGISTRY_TOKEN não definido}"
+: "${REGISTRY_EMAIL:?REGISTRY_EMAIL não definido}"
+
+NAMESPACES=(
+  tipsbank-contas
+  tipsbank-transacoes
+  tipsbank-auditoria
+  tipsbank-web
+)
+
+echo "[+] Criando namespaces..."
+
+for NS in "${NAMESPACES[@]}"; do
+  kubectl create namespace "$NS" \
+    --dry-run=client -o yaml | kubectl apply -f -
+done
+
+echo "[+] Criando registry-secret..."
+
+for NS in "${NAMESPACES[@]}"; do
   kubectl create secret docker-registry registry-secret \
     --docker-server="$REGISTRY_SERVER" \
     --docker-username="$REGISTRY_USER" \
@@ -15,3 +42,5 @@ for NS in tipsbank-contas tipsbank-transacoes tipsbank-auditoria tipsbank-web; d
     -n "$NS" \
     --dry-run=client -o yaml | kubectl apply -f -
 done
+
+echo "[+] Finalizado com sucesso."
