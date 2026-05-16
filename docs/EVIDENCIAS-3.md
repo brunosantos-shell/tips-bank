@@ -185,15 +185,15 @@ Os seguintes manifestos foram utilizados nesta etapa:
 - ✔ Nenhuma API entrou em CrashLoopBackOff durante o deploy
 - ✔ Rollout dos Deployments concluído com sucesso
 
+---
+
 ### **Etapa 3.2 — Rollout strategy e rollback**
 
-## Objetivo da Etapa
+### Objetivo da Etapa
 
 Configurar estratégia de rollout no Deployment `api-transacoes`, definindo parâmetros explícitos para atualização controlada e validando rollback em cenário de falha.
 
 O objetivo foi garantir que uma versão quebrada não derrube o serviço em produção.
-
----
 
 ### 1. Configuração da estratégia de Rollout
 
@@ -272,17 +272,18 @@ kubectl rollout history deployment/api-transacoes \
 
 - 🖼️ Testes Rollout strategy e rollback:
 
-![alt text](../evidencias/semana-3/etapa-3.1/teste-etapa-3.2-1.png)
-![alt text](../evidencias/semana-3/etapa-3.1/teste-etapa-3.2-2.png)
-![alt text](../evidencias/semana-3/etapa-3.1/teste-etapa-3.2-3.png)
+![alt text](../evidencias/semana-3/etapa-3.2/teste-etapa-3.2-1.png)
+![alt text](../evidencias/semana-3/etapa-3.2/teste-etapa-3.2-2.png)
+![alt text](../evidencias/semana-3/etapa-3.2/teste-etapa-3.2-3.png)
 
 ### 2. Referência dos Manifestos Kubernetes (YAML)
 
 Os seguintes manifestos foram utilizados nesta etapa:
 
-- 01-api-transacoes-rollout.yaml
+- [01-api-transacoes-rollout.yaml](../k8s/etapa-3.2/01-api-transacoes-rollout.yaml)
 
 ### Conclusão
+
 - ✔ Estratégia RollingUpdate configurada no Deployment api-transacoes
 - ✔ maxSurge=1 e maxUnavailable=0 aplicados com sucesso
 - ✔ revisionHistoryLimit=5 configurado para manter histórico de rollback
@@ -295,3 +296,200 @@ Os seguintes manifestos foram utilizados nesta etapa:
 - ✔ Histórico de rollout apresentou múltiplas revisões
 
 ---
+
+### **Etapa 3.3 — Affinity, AntiAffinity, Taints e Tolerations**
+
+### Objetivo da Etapa
+
+Garantir distribuição inteligente dos workloads no cluster Kubernetes, evitando concentração de réplicas no mesmo node e isolando cargas críticas do banco de dados utilizando Affinity, AntiAffinity, Taints e Tolerations.
+
+Foram implementados:
+
+- `podAntiAffinity` para distribuir réplicas das APIs
+- AntiAffinity obrigatória entre Postgres Primary e Replica
+- Taint em node dedicado
+- Tolerations apenas para workloads do Postgres
+- Isolamento de aplicações críticas
+
+---
+
+### 1. Configuração do Node Dedicado para Banco
+
+Foi criado um node dedicado para workloads do banco de dados utilizando labels e taints.
+
+Aplicação da label:
+
+```bash
+kubectl label node worker-k8s-02 compliance=strict --overwrite
+```
+
+Aplicação do taint:
+
+```bash
+kubectl taint nodes worker-k8s-02 compliance=strict:NoSchedule
+```
+
+Validação:
+
+```bash
+kubectl describe node worker-k8s-02 | grep -i Taints
+
+kubectl get node worker-k8s-02 --show-labels | grep compliance
+```
+- 🖼️ Node configurado com taint: 
+
+![node-taint-compliance.png](../evidencias/semana-3/etapa-3.3/node-taint-compliance.png)
+
+- 🖼️ Label aplicada no node: 
+
+![node-label-compliance.png](../evidencias/semana-3/etapa-3.3/node-label-compliance.png)
+
+### 2. Configuração do Postgres Primary e Replica
+
+Foi criado um segundo StatefulSet do banco (postgres-replica) para validação de separação entre workloads críticos.
+
+Configuração aplicada:
+
+- Replica dedicada
+- Tolerations habilitadas
+- AntiAffinity obrigatória
+
+Garantir que postgres-primary e postgres-replica nunca executem no mesmo node.
+
+```bash
+kubectl get pods -o wide -n tipsbank-contas | grep postgres
+```
+
+- 🖼️ Postgres distribuídos entre nodes:
+
+![postgres-primary-replica-nodes.png](../evidencias/semana-3/etapa-3.3/postgres-primary-replica-nodes.png)
+
+### 3. Configuração de Tolerations no Postgres
+
+Foram adicionadas tolerations exclusivamente aos StatefulSets do banco.
+
+```bash
+kubectl get statefulset postgres \
+-n tipsbank-contas -o yaml | grep -A8 tolerations
+
+kubectl get statefulset postgres-replica \
+-n tipsbank-contas -o yaml | grep -A8 tolerations
+```
+
+- 🖼️ Tolerations Postgres Replica: 
+
+![postgres-tolerations-replica.png](../evidencias/semana-3/etapa-3.3/postgres-tolerations-replica.png)
+
+### 4. Validação de ausência de Tolerations nas APIs
+
+Foi validado que workloads de aplicação não receberam tolerations.
+
+```bash
+kubectl get deployment api-contas \
+-n tipsbank-contas -o yaml | grep -A8 tolerations
+
+kubectl get deployment api-transacoes \
+-n tipsbank-transacoes -o yaml | grep -A8 tolerations
+
+kubectl get deployment auditoria \
+-n tipsbank-auditoria -o yaml | grep -A8 tolerations
+
+kubectl get deployment web \
+-n tipsbank-web -o yaml | grep -A8 tolerations
+```
+
+- 🖼️ APIs sem tolerations: 
+
+![apis-sem-tolerations.png](../evidencias/semana-3/etapa-3.3/apis-sem-tolerations.png)
+
+### 5. Configuração de PodAntiAffinity nos Deployments
+
+Foi configurado preferredDuringSchedulingIgnoredDuringExecution para evitar concentração de réplicas no mesmo node.
+
+```bash
+kubectl get deployment api-contas \
+-n tipsbank-contas -o yaml | grep -A10 affinity
+
+kubectl get deployment api-transacoes \
+-n tipsbank-transacoes -o yaml | grep -A10 affinity
+
+kubectl get deployment auditoria \
+-n tipsbank-auditoria -o yaml | grep -A10 affinity
+
+kubectl get deployment web \
+-n tipsbank-web -o yaml | grep -A10 affinity
+```
+
+- 🖼️ AntiAffinity API Contas: 
+
+![alt text](../evidencias/semana-3/etapa-3.3/api-contas-antiaffinity.png)
+
+- 🖼️ AntiAffinity API Transações: 
+
+![alt text](../evidencias/semana-3/etapa-3.3/api-transacoes-antiaffinity.png)
+
+- 🖼️ AntiAffinity Auditoria: 
+
+![alt text](../evidencias/semana-3/etapa-3.3/auditoria-antiaffinity.png)
+
+- 🖼️ AntiAffinity Web:
+
+![alt text](../evidencias/semana-3/etapa-3.3/web-antiaffinity.png)
+
+### 6. Validação do AntiAffinity obrigatório entre Primary e Replica
+
+Foi aplicado:
+
+```yaml
+requiredDuringSchedulingIgnoredDuringExecution
+```
+garantindo que workloads do banco não compartilhem o mesmo node.
+
+```bash
+kubectl get statefulset postgres-replica \
+-n tipsbank-contas -o yaml | grep -A10 affinity
+```
+
+- 🖼️ Postgres required AntiAffinity: 
+
+![alt text](../evidencias/semana-3/etapa-3.3/postgres-required-antiaffinity.png)
+
+### 7. Distribuição Final dos Pods
+
+Foi validado o posicionamento dos workloads após aplicação das políticas.
+
+```bash
+kubectl get pods -o wide -A | egrep \
+"api-contas|api-transacoes|auditoria|web"
+```
+Nenhuma API executando no node isolado (worker-k8s-02).
+
+- 🖼️ Distribuição final workloads: pods-distribuicao-final.png
+
+![alt text](../evidencias/semana-3/etapa-3.3/pods-distribuicao-final.png)
+
+Apos  finalizado foi necessario remover a taint do worker
+
+```bash
+kubectl taint nodes worker-k8s-02 compliance=strict:NoSchedule-
+```
+
+### 8. Referência dos Manifestos Kubernetes (YAML)
+
+Os seguintes manifestos foram utilizados nesta etapa:
+
+- 📄 [01-api-contas-affinity.yaml](../k8s/etapa-3.3/01-api-contas-affinity.yaml)
+- 📄 [02-api-transacoes-affinity.yaml](../k8s/etapa-3.3/02-api-transacoes-affinity.yaml)
+- 📄 [04-auditoria-affinity.yaml](../k8s/etapa-3.3/04-auditoria-affinity.yaml)
+- 📄 [05-web-affinity.yaml](../k8s/etapa-3.3/05-web-affinity.yaml)
+- 📄 [06-postgres-affinity.yaml](../k8s/etapa-3.3/06-postgres-affinity.yaml)
+
+### Conclusão
+
+- ✔ `podAntiAffinity` configurado em todos os Deployments com múltiplas réplicas
+- ✔ `postgres-primary` e `postgres-replica` distribuídos em nodes distintos
+- ✔ Node dedicado configurado utilizando `taints`
+- ✔ Apenas workloads críticos receberam `tolerations`
+- ✔ APIs e frontend impedidos de executar no node isolado
+- ✔ Estratégia de isolamento validada
+- ✔ Distribuição automática dos workloads funcionando conforme esperado
