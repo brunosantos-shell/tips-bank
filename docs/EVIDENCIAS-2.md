@@ -1013,4 +1013,4 @@ Os seguintes manifestos foram utilizados na implementação das políticas Zero-
   - tipsbank-transacoes
   - tipsbank-auditoria
 
-  Seguir para documentação: [EVIDENCIAS-3](EVIDENCIAS-3.md#objetivo-da-etapa-1) 
+  Seguir para documentação: [EVIDENCIAS-3](EVIDENCIAS-3.md#evidências-semana-3) 
