@@ -1,4 +1,4 @@
-# Evidências Semana 2
+# Evidências Semana 3
 **Projeto:** TipsBank  
 **Objetivo da semana**: tornar o TipsBank resiliente (probes, affinity) e observável (kube-prometheus), com HPA escalando sob carga gerada pelo Locust.**Data:** 16/05/2026  
 **Responsável:** Bruno dos Santos
