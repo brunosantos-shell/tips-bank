@@ -816,8 +816,5 @@ chown -R 65532:65532 /opt/WORKLOADS
   - Auditoria escrevendo simultaneamente a partir de múltiplas réplicas  
   - Consistência dos dados validada em cenário de concorrência 
 
-  Seguir para documentação: [EVIDENCIAS-2](EVIDENCIAS-2.md#evidências-semana-2) 
-
-
-
+  Seguir para documentação: [EVIDENCIAS-2](EVIDENCIAS-2.md#evidências-semana-2)
 

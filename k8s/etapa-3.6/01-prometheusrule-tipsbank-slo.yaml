@@ -1,0 +1,66 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: tipsbank-slo-alerts
+  namespace: tipsbank-monitoring
+  labels:
+    release: kube-prometheus-stack
+spec:
+  groups:
+    - name: tipsbank.slo.rules
+      rules:
+        - alert: TipsBankApiDown
+          expr: up{job=~"api-.*"} == 0
+          for: 2m
+          labels:
+            severity: critical
+            app: tipsbank
+          annotations:
+            summary: "API TipsBank indisponível"
+            description: "O target {{ $labels.job }} no pod {{ $labels.pod }} está DOWN há mais de 2 minutos."
+
+        - alert: TipsBankP99Alto
+          expr: |
+            histogram_quantile(
+              0.99,
+              sum by (le, job) (
+                rate(http_request_duration_seconds_bucket{job=~"api-.*"}[5m])
+              )
+            ) > 0.5
+          for: 5m
+          labels:
+            severity: warning
+            app: tipsbank
+          annotations:
+            summary: "Latência p99 alta nas APIs TipsBank"
+            description: "A latência p99 do job {{ $labels.job }} está acima de 500ms por mais de 5 minutos."
+
+        - alert: TipsBankErroAltoApi
+          expr: |
+            (
+              sum by (job) (
+                rate(http_requests_total{job=~"api-.*",status=~"5.."}[3m])
+              )
+              /
+              sum by (job) (
+                rate(http_requests_total{job=~"api-.*"}[3m])
+              )
+            ) > 0.05
+          for: 3m
+          labels:
+            severity: critical
+            app: tipsbank
+          annotations:
+            summary: "Taxa alta de erros 5xx nas APIs TipsBank"
+            description: "Mais de 5% das requisições do job {{ $labels.job }} retornaram 5xx nos últimos 3 minutos."
+
+        - alert: TipsBankPodCrashLoop
+          expr: |
+            increase(kube_pod_container_status_restarts_total{namespace=~"tipsbank-.*"}[10m]) > 3
+          for: 0m
+          labels:
+            severity: warning
+            app: tipsbank
+          annotations:
+            summary: "Pod TipsBank reiniciando muitas vezes"
+            description: "O container {{ $labels.container }} do pod {{ $labels.pod }} reiniciou mais de 3 vezes nos últimos 10 minutos."

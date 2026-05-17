@@ -880,3 +880,215 @@ Manifestos utilizados:
 - ✔ Targets das APIs validados em estado UP
 - ✔ Dashboards renderizando métricas reais
 - ✔ Geração artificial de carga executada
+
+---
+
+### **Etapa 3.6 — PrometheusRule com Alertas de SLO**
+
+### Objetivo da Etapa
+
+Configurar alertas críticos utilizando `PrometheusRule`, permitindo identificar automaticamente falhas operacionais e degradação dos serviços do ambiente TipsBank.
+
+Foram implementados alertas baseados em disponibilidade, latência, erros HTTP e reinicializações excessivas de containers.
+
+### 1. Criação das Regras de Alerta
+
+Foram criadas regras centralizadas utilizando recursos `PrometheusRule` no namespace de monitoramento.
+
+Alertas configurados:
+
+| Alerta | Condição | Severity |
+|----------|-----------|-----------|
+| TipsBankApiDown | `up{job=~"api-.*"} == 0 por 2min` | critical |
+| TipsBankP99Alto | p99 > 500ms por 5min | warning |
+| TipsBankErroAltoApi | taxa de 5xx > 5% por 3min | critical |
+| TipsBankPodCrashLoop | `kube_pod_container_status_restarts_total > 3 em 10min` | warning |
+|
+
+- 🖼️ Regras criadas:
+
+![prometheus-rules-created.png](../evidencias/semana-3/etapa-3.6/prometheus-rules-created.png)
+
+### 2. Aplicação das Regras no Cluster
+
+As regras foram aplicadas no namespace `tipsbank-monitoring`.
+
+```bash
+kubectl apply -f 01-prometheusrule-tipsbank-slo.yaml
+```
+
+Validação:
+
+```bash
+kubectl get prometheusrule -A
+```
+
+- 🖼️ PrometheusRule aplicado:
+
+![prometheusrules-list.png](../evidencias/semana-3/etapa-3.6/prometheusrules-list.png)
+
+### 3. Validação das Regras no Prometheus
+
+Após aplicação, as regras passaram a ser descobertas automaticamente pelo Prometheus.
+
+Validação:
+
+```bash
+kubectl describe prometheusrule \
+-n tipsbank-monitoring
+```
+
+- 🖼️ Regras carregadas:
+
+![prometheus-rules-loaded.png](../evidencias/semana-3/etapa-3.6/prometheus-rules-loaded.png)
+
+### 4. Validação via Interface do Prometheus
+
+As regras foram visualizadas diretamente na interface do Prometheus.
+
+Menu:
+
+```text
+Prometheus → Alerts
+```
+
+- 🖼️ Regras visíveis no Prometheus:
+
+![prometheus-alerts-page.png](../evidencias/semana-3/etapa-3.6/prometheus-alerts-page.png)
+
+### 5. Teste do Alerta TipsBankErroAltoApi
+
+Foi baixado a quantidade de replicas do pod do postgres e gerado volume artificial de requisições para elevar a taxa de erros.
+
+```bash
+
+kubectl scale statefulset postgres -n tipsbank-contas --replicas=0
+
+for i in {1..5000}; do
+ curl -k \
+ -H "Host: api.tipsbank.local" \
+ https://192.168.20.200/contas \
+ -o /dev/null \
+ -s \
+ -w "%{http_code}\n"
+done
+```
+
+Objetivo:
+
+Gerar respostas inválidas e aumentar o percentual de códigos HTTP de erro.
+
+- 🖼️ Alerta disparado:
+
+![alert-api-error-fired.png](../evidencias/semana-3/etapa-3.6/alert-api-error-fired-pending.png)
+
+### 6. Teste do Alerta TipsBankPodCrashLoop
+
+Foi simulada uma falha proposital alterando a imagem do Deployment.
+
+```bash
+kubectl set image deployment/api-contas \
+-n tipsbank-contas \
+api-contas=busybox
+```
+
+Objetivo:
+
+Provocar falha de inicialização e múltiplas reinicializações do pod.
+
+```bash
+kubectl get pods \
+-n tipsbank-contas
+```
+
+- 🖼️ Alerta PodCrashLoop:
+
+![alert-crashloop-fired.png](../evidencias/semana-3/etapa-3.6/alert-crashloop-fired.png)
+
+
+### 7. Teste do Alerta TipsBankApiDown
+
+Foi simulada indisponibilidade proposital da API.
+
+Exemplo:
+
+```bash
+kubectl scale deployment api-contas \
+-n tipsbank-contas \
+--replicas=0
+```
+
+Validação:
+
+```bash
+kubectl get pods \
+-n tipsbank-contas
+```
+
+Após alguns minutos a métrica `up` passou para estado inválido.
+
+- 🖼️ Prometheus gerando o alerta:
+
+![alert-apidown-fired.png](../evidencias/semana-3/etapa-3.6/alert-apidown-fired.png)
+
+### 8. Teste do Alerta TipsBankP99Alto
+
+Foi gerado volume elevado de chamadas para aumentar latência da aplicação.
+
+
+```bash
+for i in {1..10000}; do
+
+curl -k \
+-H "Host: api.tipsbank.local" \
+https://192.168.20.200/transacoes/health/live \
+>/dev/null &
+
+done
+```
+
+- 🖼️ Alerta P99:
+
+![alert-p99-fired.png](../evidencias/semana-3/etapa-3.6/alert-p99-fired.png)
+
+### 9. Validação no Alertmanager
+
+Todos os alertas disparados passaram a aparecer automaticamente no Alertmanager.
+
+Acesso:
+
+```text
+Alertmanager → Alerts
+```
+
+- 🖼️ Alertmanager ApiDown:
+
+![alert-manager-apidown.png](../evidencias/semana-3/etapa-3.6/alert-manager-apidown.png)
+
+- 🖼️ Alertmanager PodCrashLoop:
+
+![alert-manager-podcrashloop.png](../evidencias/semana-3/etapa-3.6/alert-manager-podcrashloop.png)
+
+- 🖼️ Alertmanager P99Alto:
+
+![alert-manager-p99.png](../evidencias/semana-3/etapa-3.6/alert-manager-p99.png)
+
+- 🖼️ Alertmanager ErroAltoApi:
+
+![alert-manager-erroaltoapi.png](../evidencias/semana-3/etapa-3.6/alert-manager-erroaltoapi.png)
+
+### 11. Referência dos Manifestos Kubernetes (YAML)
+
+Manifestos utilizados nesta etapa:
+
+- 📄 [01-prometheusrule-tipsbank-slo.yaml](../k8s/etapa-3.6/01-prometheusrule-tipsbank-slo.yaml)
+
+### Conclusão
+
+- ✔ PrometheusRule implementado com sucesso
+- ✔ Alertas centralizados para disponibilidade, erros, latência e estabilidade
+- ✔ Regras descobertas automaticamente pelo Prometheus
+- ✔ Alertmanager recebendo eventos corretamente
+- ✔ Cenários críticos simulados em ambiente controlado
+- ✔ Falhas reproduzidas para validação operacional
+
