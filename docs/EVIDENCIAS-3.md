@@ -443,6 +443,7 @@ Foi aplicado:
 ```yaml
 requiredDuringSchedulingIgnoredDuringExecution
 ```
+
 garantindo que workloads do banco não compartilhem o mesmo node.
 
 ```bash
@@ -492,4 +493,175 @@ Os seguintes manifestos foram utilizados nesta etapa:
 - ✔ Apenas workloads críticos receberam `tolerations`
 - ✔ APIs e frontend impedidos de executar no node isolado
 - ✔ Estratégia de isolamento validada
-- ✔ Distribuição automática dos workloads funcionando conforme esperado
+- ✔ Distribuição automática dos workloads funcionando
+
+---
+
+### **Etapa 3.4 — Resources, Limits e QoS**
+
+### Objetivo da Etapa
+
+Configurar `resources.requests` e `resources.limits` em 100% dos containers da aplicação TipsBank, garantindo classes de QoS previsíveis e evitando pods sem controle de consumo de CPU e memória.
+
+Foram configurados recursos para:
+
+- APIs
+- Frontend web
+- Postgres
+- Sidecar `log-forwarder`
+
+### 1. Configuração de Resources nas APIs
+
+Foram configurados `requests` e `limits` nos containers das APIs.
+
+```yaml
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+```
+
+Workloads contemplados:
+
+- api-contas
+- api-transacoes
+- api-transacoes-v2
+- auditoria
+
+- 🖼️ Resources API Contas: 
+
+![api-contas-resources.png](../evidencias/semana-3/etapa-3.4/api-contas-resources.png)
+
+- 🖼️ Resources API Transações: 
+
+![api-transacoes-resources.png](../evidencias/semana-3/etapa-3.4/api-transacoes-resources.png)
+
+- 🖼️ Resources Auditoria: 
+
+![auditoria-resources.png](../evidencias/semana-3/etapa-3.4/auditoria-resources.png)
+
+### 2. Configuração de Resources no Frontend Web
+
+Foi configurado requests e limits no container do frontend web.
+
+```yaml
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+```
+
+- 🖼️ Resources Web: 
+
+![web-resources.png](../evidencias/semana-3/etapa-3.4/web-resources.png)
+
+### 3. Configuração de Resources no Postgres
+
+Foram configurados recursos específicos para o banco de dados Postgres.
+
+```yaml
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: "1"
+    memory: 1Gi
+```
+
+- 🖼️ Resources Postgres: 
+
+![postgres-resources.png](../evidencias/semana-3/etapa-3.4/postgres-resources.png)
+
+### 4. Configuração de Resources no Sidecar Log Forwarder
+
+O container sidecar log-forwarder também recebeu configuração de recursos.
+
+```yaml
+resources:
+  requests:
+    cpu: 10m
+    memory: 16Mi
+  limits:
+    cpu: 50m
+    memory: 32Mi
+```
+
+- 🖼️ Resources Sidecar Log Forwarder: 
+
+![sidecar-log-forwarder-resources.png](../evidencias/semana-3/etapa-3.4/sidecar-log-forwarder-resources.png)
+
+### 5. Validação das Classes de QoS
+
+Foi validado que os pods passaram a utilizar QoS previsível e nenhum workload ficou como BestEffort.
+
+```bash
+kubectl get pods -A \
+-o custom-columns="NAMESPACE:.metadata.namespace,POD:.metadata.name,QOS:.status.qosClass" \
+| grep tipsbank
+```
+
+- 🖼️ QoS dos pods TipsBank: 
+
+![qos-classes-tipsbank.png](../evidencias/semana-3/etapa-3.4/qos-classes-tipsbank.png)
+
+
+### 6. Validação de Consumo Atual dos Pods
+
+Foi realizada validação do consumo atual dos pods com kubectl top pod.
+
+```bash
+kubectl top pod -A | grep tipsbank
+```
+
+- 🖼️ Uso atual dos pods: 
+
+![kubectl-top-pods.png](../evidencias/semana-3/etapa-3.4/kubectl-top-pods.png)
+
+### 7. Referência dos Manifestos Kubernetes (YAML)
+
+Os seguintes manifestos foram utilizados nesta etapa:
+
+- 📄 [01-api-contas-resources.yaml](../k8s/etapa-3.4/01-api-contas-resources.yaml)
+- 📄 [02-api-transacoes-resources.yaml](../k8s/etapa-3.4/02-api-transacoes-resources.yaml)
+- 📄 [03-api-transacoes-v2-resources.yaml](../k8s/etapa-3.4/03-api-transacoes-v2-resources.yaml)
+- 📄 [04-auditoria-resources.yaml](../k8s/etapa-3.4/04-auditoria-resources.yaml)
+- 📄 [05-web-resources.yaml](../k8s/etapa-3.4/05-web-resources.yaml)
+- 📄 [06-postgres-resources.yaml](../k8s/etapa-3.4/06-postgres-resources.yaml)
+- 📄 [07-postgres-replica-resources.yaml](../k8s/etapa-3.4/07-postgres-replica-resources.yaml)
+
+### 9. Considerações sobre Classes de QoS (Quality of Service)
+
+O Kubernetes classifica os pods em categorias de QoS (Quality of Service) com base na configuração de `requests` e `limits` de CPU e memória. Essa classificação influencia a prioridade de desalocação em cenários de pressão de recursos no cluster.
+
+- **BestEffort**
+  - Não possui `requests` nem `limits`
+  - Menor prioridade
+  - Primeiros pods a serem encerrados em situações de falta de recursos
+
+- **Burstable**
+  - Possui `requests` e/ou `limits`, porém com valores diferentes
+  - Permite consumo acima do mínimo reservado até o limite configurado
+  - Equilíbrio entre previsibilidade e flexibilidade
+
+- **Guaranteed**
+  - `requests` e `limits` possuem exatamente os mesmos valores
+  - Maior prioridade no cluster
+  - Menor chance de sofrer eviction
+
+Nesta implementação do TipsBank, os workloads foram classificados principalmente como **Burstable**, permitindo flexibilidade de consumo com controle explícito de recursos, evitando pods `BestEffort` sem restrições.
+
+### Conclusão
+
+- ✔ resources.requests e resources.limits configurados em todos os containers
+- ✔ APIs, frontend, Postgres e sidecar contemplados
+- ✔ Nenhum pod classificado como BestEffort
+- ✔ Pods classificados como Burstable, garantindo QoS previsível
+- ✔ Scheduler passou a ter informações explícitas de CPU e memória
+- ✔ Consumo real validado com kubectl top pod
