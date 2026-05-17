@@ -1,0 +1,20 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: api-contas
+  namespace: tipsbank-monitoring
+  labels:
+    release: kube-prometheus-stack
+spec:
+  selector:
+    matchLabels:
+      app: api-contas
+
+  namespaceSelector:
+    matchNames:
+      - tipsbank-contas
+
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s

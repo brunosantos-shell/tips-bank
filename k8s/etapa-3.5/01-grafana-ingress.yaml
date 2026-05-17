@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: grafana
+  namespace: tipsbank-monitoring
+  annotations:
+    cert-manager.io/cluster-issuer: tipsbank-selfsigned
+spec:
+  ingressClassName: nginx
+
+  tls:
+  - hosts:
+      - grafana.tipsbank.local
+    secretName: grafana-tls
+
+  rules:
+  - host: grafana.tipsbank.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: kube-prometheus-stack-grafana
+            port:
+              number: 80

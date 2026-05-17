@@ -29,7 +29,7 @@ Foram configuradas 3 probes nas APIs da aplicação:
 
 A `startupProbe` foi configurada com parâmetros mais permissivos para permitir tempo suficiente de inicialização da aplicação.
 
-### Configuração aplicada
+#### Configuração aplicada
 
 ```yaml
 startupProbe:
@@ -636,7 +636,7 @@ Os seguintes manifestos foram utilizados nesta etapa:
 - 📄 [06-postgres-resources.yaml](../k8s/etapa-3.4/06-postgres-resources.yaml)
 - 📄 [07-postgres-replica-resources.yaml](../k8s/etapa-3.4/07-postgres-replica-resources.yaml)
 
-### 9. Considerações sobre Classes de QoS (Quality of Service)
+### 8. Considerações sobre Classes de QoS (Quality of Service)
 
 O Kubernetes classifica os pods em categorias de QoS (Quality of Service) com base na configuração de `requests` e `limits` de CPU e memória. Essa classificação influencia a prioridade de desalocação em cenários de pressão de recursos no cluster.
 
@@ -665,3 +665,218 @@ Nesta implementação do TipsBank, os workloads foram classificados principalmen
 - ✔ Pods classificados como Burstable, garantindo QoS previsível
 - ✔ Scheduler passou a ter informações explícitas de CPU e memória
 - ✔ Consumo real validado com kubectl top pod
+
+---
+
+### **Etapa 3.5 — Observabilidade com kube-prometheus-stack**
+
+### Objetivo da Etapa
+
+Implantar uma stack completa de observabilidade no cluster Kubernetes utilizando `kube-prometheus-stack`, contemplando:
+
+- Prometheus
+- Grafana
+- Alertmanager
+- ServiceMonitor para as APIs
+- Ingress com TLS para acesso às interfaces
+- Dashboard com métricas reais da aplicação TipsBank
+
+O objetivo foi garantir visibilidade sobre disponibilidade, tráfego HTTP, latência, status code e consumo de CPU/Memória dos pods.
+
+
+### 1. Instalação do kube-prometheus-stack
+
+Foi realizada a instalação da stack oficial utilizando Helm.
+
+
+```bash
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+
+helm repo update
+
+helm install prometheus-stack prometheus-community/kube-prometheus-stack \
+-n tipsbank-monitoring --create-namespace
+```
+
+- 🖼️ Instalação do kube-prometheus-stack:
+
+![install-kube-prometheus-stack.png](../evidencias/semana-3/etapa-3.5/install-kube-prometheus-stack.png)
+
+### 2. Exposição das Interfaces via Ingress com TLS
+
+Foram criados recursos Ingress para exposição segura das interfaces administrativas.
+
+#### Hosts configurados
+
+- `grafana.tipsbank.local`
+- `prometheus.tipsbank.local`
+- `alertmanager.tipsbank.local`
+
+### 3. Validação do Grafana via Ingress
+
+Foi validado o acesso ao Grafana através do host configurado.
+
+- 🖼️ Grafana acessível:
+
+![grafana-ingress.png](../evidencias/semana-3/etapa-3.5/grafana-ingress.png)
+
+### 4. Criação dos ServiceMonitors
+
+Foram criados ServiceMonitors para as APIs do TipsBank.
+
+#### APIs monitoradas
+
+- api-contas
+- api-transacoes
+- auditoria
+
+#### Endpoint monitorado
+
+```text
+/metrics
+```
+
+Porta:
+
+```text
+8080
+```
+
+- 🖼️ ServiceMonitors:
+
+![servicemonitors-created.png](../evidencias/semana-3/etapa-3.5/servicemonitors-created.png)
+
+### 5. Ajuste das Labels dos ServiceMonitors
+
+Inicialmente os ServiceMonitors não eram descobertos pelo Prometheus.
+
+Foi necessário ajustar labels compatíveis com os selectors do Prometheus.
+
+```bash
+kubectl get prometheus -n tipsbank-monitoring -o yaml | grep -A20 serviceMonitor
+```
+
+- 🖼️ Selector Prometheus:
+
+![prometheus-servicemonitor-selector.png](../evidencias/semana-3/etapa-3.5/prometheus-servicemonitor-selector.png)
+
+
+### 6. Ajuste das NetworkPolicies
+
+Após implementação do modelo Zero Trust foi necessário liberar explicitamente a comunicação entre o namespace de monitoramento e as APIs monitoradas, pois os targets do Prometheus estavam inacessíveis devido às regras de isolamento impostas pelas NetworkPolicies.
+
+- 🖼️ Erro de target no Prometheus:
+
+![prometheus-error-targets.png](../evidencias/semana-3/etapa-3.5/prometheus-error-targets.png)
+
+#### Fluxos liberados
+
+Namespace:
+
+```text
+tipsbank-monitoring
+```
+
+Destino:
+
+- tipsbank-contas
+- tipsbank-transacoes
+- tipsbank-auditoria
+
+Endpoint:
+
+```text
+/metrics
+```
+
+### 7. Validação dos Targets no Prometheus
+
+Foi validado o status dos endpoints na interface do Prometheus.
+
+🖼️ Targets em estado UP:
+
+![prometheus-targets-up.png](../evidencias/semana-3/etapa-3.5/prometheus-targets-up.png)
+
+### 8. Validação do Alertmanager
+
+Foi validado o acesso à interface do Alertmanager.
+
+Mesmo sem alertas configurados nesta etapa, a funcionalidade foi validada.
+
+- 🖼️ Alertmanager:
+
+![alertmanager-ui.png](../evidencias/semana-3/etapa-3.5/alertmanager-ui.png)
+
+### 9. Geração de Tráfego para Popular Métricas
+
+Para geração de dados reais foi executada uma carga artificial nas APIs.
+
+#### Script utilizado
+
+```bash
+for i in {1..10000}; do
+  curl -k -H "Host: app.tipsbank.local" \
+  https://192.168.20.200/api/contas/health/live >/dev/null
+
+  curl -k -H "Host: app.tipsbank.local" \
+  https://192.168.20.200/api/transacoes/health/live >/dev/null
+
+  curl -k -H "Host: app.tipsbank.local" \
+  https://192.168.20.200/api/auditoria/health/live >/dev/null
+done
+```
+
+- 🖼️ Geração de tráfego:
+
+![geracao-carga-metricas.png](../evidencias/semana-3/etapa-3.5/geracao-carga-metricas.png)
+
+### 10. Consideração sobre PodMonitor do Sidecar
+
+Foi avaliada a utilização de PodMonitor para o sidecar `log-forwarder`.
+
+O sidecar utilizado possui apenas a função:
+
+```bash
+tail -F /var/log/app/app.log
+```
+
+Como não existe endpoint `/metrics`, não foi criado PodMonitor.
+
+
+### 11. Consideração sobre Métricas do Frontend Web
+
+O `nginx-unprivileged` não expõe métricas Prometheus nativamente.
+
+Para futuras implementações seria necessário:
+
+- habilitar `stub_status`
+- adicionar `nginx-prometheus-exporter`
+- criar ServiceMonitor dedicado
+
+
+### 12. Referência dos Manifestos Kubernetes (YAML)
+
+Manifestos utilizados:
+
+- 📄 [01-api-contas-service-monitor-fix.yaml](../k8s/etapa-3.5/01-api-contas-service-monitor-fix.yaml)
+- 📄 [01-grafana-ingress.yaml](../k8s/etapa-3.5/01-grafana-ingress.yaml) 
+- 📄 [02-api-transacoes-service-monitor-fix.yaml](../k8s/etapa-3.5/02-api-transacoes-service-monitor-fix.yaml) 
+- 📄 [02-prometheus-ingress.yaml](../k8s/etapa-3.5/02-prometheus-ingress.yaml) 
+- 📄 [03-alertmanager-ingress.yaml](../k8s/etapa-3.5/03-alertmanager-ingress.yaml) 
+- 📄 [03-auditoria-service-monitor-fix.yaml](../k8s/etapa-3.5/03-auditoria-service-monitor-fix.yaml) 
+- 📄 [04-servicemonitor-api-contas.yaml](../k8s/etapa-3.5/04-servicemonitor-api-contas.yaml) 
+- 📄 [05-servicemonitor-api-transacoes.yaml](../k8s/etapa-3.5/05-servicemonitor-api-transacoes.yaml) 
+- 📄 [06-servicemonitor-auditoria.yaml](../k8s/etapa-3.5/06-servicemonitor-auditoria.yaml) 
+- 📄 [allow-prometheus-to-api.yaml](../k8s/etapa-3.5/allow-prometheus-to-api.yaml)
+
+### Conclusão
+
+- ✔ kube-prometheus-stack instalado com sucesso
+- ✔ Grafana, Prometheus e Alertmanager operacionais
+- ✔ Interfaces expostas via Ingress + TLS
+- ✔ ServiceMonitor configurado para as três APIs
+- ✔ Ajuste de labels realizado para descoberta automática
+- ✔ NetworkPolicies adaptadas ao monitoramento
+- ✔ Targets das APIs validados em estado UP
+- ✔ Dashboards renderizando métricas reais
+- ✔ Geração artificial de carga executada
