@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: locust
+  namespace: tipsbank-monitoring
+  annotations:
+    cert-manager.io/cluster-issuer: tipsbank-selfsigned
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - locust.tipsbank.local
+      secretName: locust-tipsbank-tls
+  rules:
+    - host: locust.tipsbank.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: locust
+                port:
+                  number: 8089

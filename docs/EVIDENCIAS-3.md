@@ -934,8 +934,7 @@ Após aplicação, as regras passaram a ser descobertas automaticamente pelo Pro
 Validação:
 
 ```bash
-kubectl describe prometheusrule \
--n tipsbank-monitoring
+kubectl describe prometheusrule -n tipsbank-monitoring
 ```
 
 - 🖼️ Regras carregadas:
@@ -1091,4 +1090,384 @@ Manifestos utilizados nesta etapa:
 - ✔ Alertmanager recebendo eventos corretamente
 - ✔ Cenários críticos simulados em ambiente controlado
 - ✔ Falhas reproduzidas para validação operacional
+
+### **Etapa 3.7 — HPA + Metrics Server + Locust Stress Test**
+
+### Objetivo da Etapa
+
+Implementar escalabilidade automática utilizando Horizontal Pod Autoscaler (HPA), coletando métricas reais via Metrics Server e validando comportamento sob carga utilizando Locust.
+
+Os testes foram realizados com carga artificial sobre os serviços do TipsBank para observar o comportamento dinâmico do cluster diante de aumento de utilização.
+
+### 1. Instalação do Metrics Server
+
+Foi instalado o Metrics Server para disponibilizar métricas de CPU e memória consumidas pelos pods do cluster Kubernetes.
+
+```bash
+kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+
+kubectl top pod -A
+
+kubectl top node
+```
+
+### 2. Criação dos HPAs
+
+Foram criados HPAs para as aplicações críticas.
+
+Configuração aplicada:
+
+| Aplicação | Min | Max | Métrica |
+|---|---:|---:|---|
+| api-contas | 2 | 10 | CPU 70% |
+| api-transacoes | 3 | 15 | ContainerResource CPU 70% |
+| auditoria | 2 | 6 | Memory 75% |
+| web | 2 | 6 | CPU 70% |
+|
+
+```bash
+kubectl get hpa -A
+```
+
+- 🖼️ HPAs criados:
+
+![hpa-created.png](../evidencias/semana-3/etapa-3.7/hpa-created.png)
+
+### 3. Configuração de Behavior Customizado
+
+Foram configuradas regras específicas para crescimento e redução gradual de pods.
+
+Exemplo:
+
+```yaml
+behavior:
+  scaleUp:
+    stabilizationWindowSeconds: 0
+
+  scaleDown:
+    stabilizationWindowSeconds: 300
+```
+
+```bash
+kubectl describe hpa api-transacoes \
+-n tipsbank-transacoes
+```
+
+- 🖼️ Behavior HPA:
+
+![hpa-behavior.png](../evidencias/semana-3/etapa-3.7/hpa-behavior.png)
+
+### 4. Criação do Deployment Locust
+
+Foi realizado build e deploy do Locust para geração de carga automatizada.
+
+```bash
+kubectl apply -f k8s/etapa-3.7/05-locust-configmap.yaml
+kubectl apply -f k8s/etapa-3.7/06-locust-deployment.yaml
+kubectl apply -f k8s/etapa-3.7/07-locust-service.yaml
+kubectl apply -f k8s/etapa-3.7/07-locust-service.yaml
+
+kubectl get pods \
+-n tipsbank-monitoring
+```
+
+### 5. Ajustes Necessários Identificados Durante os Testes
+
+Durante a execução foram necessários ajustes adicionais.
+
+Itens alterados:
+
+- nginx.conf
+- regras de NetworkPolicy
+
+Motivos:
+
+O tráfego do Locust inicialmente não conseguia alcançar corretamente os endpoints monitorados devido ao modelo Zero Trust implementado anteriormente.
+
+Também foi necessário ajustar o `nginx.conf` para suportar adequadamente o volume de conexões simultâneas.
+
+- Configuração NGINX:
+
+```bash
+kubectl apply -f k8s/etapa-3.7/09-web-locust-gateway.yaml
+```
+
+- Ajustes NetPol:
+
+```bash
+kubectl apply -f k8s/etapa-3.7/allow-monitoring-to-web.yaml
+```
+
+## 6. Execução do Stress Test
+
+Para validação do comportamento do HPA sob carga real foi utilizado o Locust simulando múltiplos usuários simultâneos.
+
+Parâmetros utilizados:
+
+| Parâmetro | Valor |
+|---|---|
+| Number of Users | 200 |
+| Ramp Up | 20 |
+| Run Time | 300 segundos |
+|
+
+Durante os testes foram realizadas múltiplas execuções para observar a evolução após ajustes no ambiente.
+
+#### Execução inicial (v1)
+
+Na primeira execução foi observado comportamento instável sob carga elevada.
+
+Resultado observado:
+
+- Fail Rate: ~64%
+- aumento abrupto do tempo de resposta
+- crescimento acelerado do consumo de memória
+- reinicializações dos pods durante a execução
+
+- 🖼️ Execução do Locust v1:
+
+![locust-running.png](../evidencias/semana-3/etapa-3.7/locust-running-rodada1.png)
+
+#### Execução após ajustes (v2)
+
+Após alterações em NetworkPolicy, nginx.conf e refinamentos no ambiente foi realizada nova bateria de testes.
+
+Resultado:
+
+- Fail Rate reduzido para ~59%
+- maior estabilidade operacional
+- redução parcial dos erros
+- HPA escalando corretamente
+
+Apesar da melhora, a meta esperada (<1%) ainda não foi atingida.
+
+- 🖼️ Execução do Locust v2:
+
+![locust-running.png](../evidencias/semana-3/etapa-3.7/locust-running-rodada2.png)
+
+### 7. Crescimento Automático do HPA
+
+Durante os testes foi observado aumento automático no número de réplicas.
+
+```bash
+watch -n 5 'kubectl get hpa -A && echo && kubectl get pods -n tipsbank-transacoes -l app=api-transacoes'
+```
+
+- 🖼️ Escalabilidade automática:
+
+![hpa-scaling-1.png](../evidencias/semana-3/etapa-3.7/hpa-scaling-1.png)
+
+![hpa-scaling-2.png](../evidencias/semana-3/etapa-3.7/hpa-scaling-2.png)
+
+### 8. Acompanhamento via Grafana
+
+Durante os testes foi possível acompanhar crescimento de consumo e escala automática.
+
+Métricas observadas:
+
+- Requests/s
+- CPU
+- Memória
+- Número de Pods
+- Tempo de resposta
+
+- 🖼️ Dashboard durante stress:
+
+![grafana-hpa-dashboard.png](../evidencias/semana-3/etapa-3.7/grafana-hpa-dashboard.png)
+
+### 9. Retorno Automático das Réplicas
+
+Após encerramento do teste foi observado scaleDown automático.
+
+```bash
+watch -n 5 'kubectl get hpa -A && echo && kubectl get pods -n tipsbank-transacoes -l app=api-transacoes
+```
+
+- 🖼️ ScaleDown automático:
+
+![hpa-scaledown.png](../evidencias/semana-3/etapa-3.7/hpa-scaledown.png)
+
+### 10. Dashboard Locust — Análise gráfica do teste
+
+O Locust fornece dashboards em tempo real que ajudam a entender o comportamento da aplicação durante o stress test.
+
+Foram analisados:
+
+- Requests per Second (RPS)
+- Failures/s
+- Tempo de resposta p50/p95
+- Número de usuários ativos
+
+Durante o período de maior carga observou-se:
+
+- aumento progressivo do RPS
+- crescimento significativo de falhas
+- aumento extremo da latência
+- degradação do serviço mesmo após o scale-up
+
+🖼️ Dashboard Locust:
+
+![locust-charts.png](../evidencias/semana-3/etapa-3.7/locust-charts.png)
+
+### 11. Problemas Encontrados Durante os Testes
+
+Durante a investigação dos resultados foi identificado que parte dos pods estava sendo encerrada pelo Kubernetes por falta de memória disponível.
+
+Evento observado:
+
+```text
+OOMKilled
+```
+
+Esse comportamento ocorre quando o container ultrapassa os limites configurados e o Kernel Linux aciona o mecanismo Out Of Memory Killer.
+
+🖼️ Evidência:
+
+![oomkilled-events.png](../evidencias/semana-3/etapa-3.7/oomkilled-events.png)
+
+#### Impacto observado no ambiente
+
+Embora o HPA tenha funcionado corretamente e iniciado aumento automático de réplicas, o crescimento da aplicação não foi suficiente para reduzir rapidamente a taxa de falha.
+
+O comportamento observado foi:
+
+1. aumento brusco de usuários simultâneos
+
+2. consumo elevado de memória
+
+3. pods atingindo limite configurado
+
+4. encerramento via OOMKilled
+
+5. novas réplicas sendo criadas
+
+6. atraso até novas réplicas ficarem Ready
+
+7. requisições falhando durante esse intervalo
+
+Esse comportamento gerou:
+
+- aumento de latência
+- crescimento de falhas
+- p95 elevado
+- indisponibilidade parcial
+
+#### Motivo de não atingir Fail Rate <1%
+
+Apesar do HPA escalar corretamente, alguns fatores impediram atingir a meta:
+
+- crescimento muito rápido da carga
+- reinicialização dos pods por OOMKilled
+- tempo de readiness das novas réplicas
+- latência elevada
+- saturação antes do HPA estabilizar
+
+Resultado observado:
+
+| Cenário | Fail Rate |
+|---|---:|
+| Execução inicial | ~64% |
+| Após ajustes | ~59% |
+| Meta esperada | <1% |
+|
+
+#### Possíveis melhorias futuras
+
+Para aproximar do objetivo esperado:
+
+- aumentar requests/limits de memória
+- ajustar parâmetros do HPA
+- usar métricas customizadas além de CPU
+- implementar Cluster Autoscaler
+- reduzir tempo de inicialização
+- aumentar réplicas mínimas
+- otimizar aplicação
+
+### 11. Validação funcional durante os testes de carga
+
+Além da validação técnica de CPU, memória, HPA e comportamento dos pods, durante a execução do stress test também foi verificada a integridade funcional da plataforma TipsBank.
+
+O objetivo foi garantir que o aumento de carga não apenas gerasse tráfego sintético, mas também validasse operações reais do sistema.
+
+Durante os testes foram observadas:
+
+- criação automática de novos usuários
+- criação de contas bancárias
+- movimentações financeiras entre contas
+- atualização do extrato em tempo real
+- persistência dos dados durante escalabilidade do cluster
+
+#### Validação de criação de contas
+
+Foi validado o endpoint administrativo responsável pela listagem de contas criadas dinamicamente durante os testes.
+
+Comando utilizado:
+
+Resultado esperado:
+
+- retorno HTTP 200
+- grande volume de contas criadas
+- usuários adicionados durante execução do Locust
+
+🖼️ Evidência:
+
+![stress-created-users.png](../evidencias/semana-3/etapa-3.7/stress-created-users.png)
+
+#### Validação de transações financeiras
+
+Durante os testes também foi validado que transações continuaram sendo executadas corretamente entre contas reais da plataforma.
+
+Foram observadas:
+
+- transferências recebidas
+- transferências enviadas
+- atualização automática do extrato
+- persistência dos registros durante scale-up do HPA
+
+Mesmo durante períodos de alta utilização e criação de novas réplicas, o sistema continuou processando movimentações.
+
+🖼️ Evidência:
+
+![stress-bank-transactions.png](../evidencias/semana-3/etapa-3.7/stress-bank-transactions.png)
+
+#### Resultado observado
+
+As evidências mostram que, mesmo em cenários de degradação por carga elevada, o sistema manteve funcionalidades críticas operando:
+
+- criação de usuários
+- criação de contas
+- operações financeiras
+- atualização de extrato
+- persistência de dados
+
+Isso demonstra que o ambiente permaneceu funcional mesmo durante eventos de escala automática e alta utilização de recursos.
+
+### 11. Referência dos Manifestos Kubernetes (YAML)
+
+Manifestos utilizados:
+
+- 📄 [01-hpa-api-contas.yaml](../k8s/etapa-3.7/01-hpa-api-contas.yaml)
+- 📄 [02-hpa-api-transacoes.yaml](../k8s/etapa-3.7/02-hpa-api-transacoes.yaml)
+- 📄 [03-hpa-auditoria.yaml](../k8s/etapa-3.7/03-hpa-auditoria.yaml) 
+- 📄 [04-hpa-web.yaml](../k8s/etapa-3.7/04-hpa-web.yaml) 
+- 📄 [05-locust-configmap.yaml](../k8s/etapa-3.7/05-locust-configmap.yaml)
+- 📄 [06-locust-deployment.yaml](../k8s/etapa-3.7/06-locust-deployment.yaml)
+- 📄 [07-locust-service.yaml](../k8s/etapa-3.7/07-locust-service.yaml) 
+- 📄 [08-locust-ingress.yaml](../k8s/etapa-3.7/08-locust-ingress.yaml)
+- 📄 [09-web-locust-gateway.yaml](../k8s/etapa-3.7/09-web-locust-gateway.yaml)
+- 📄 [allow-monitoring-to-web.yaml](../k8s/etapa-3.7/allow-monitoring-to-web.yaml)
+
+
+### Conclusão
+
+- ✔ Metrics Server instalado e operacional
+- ✔ HPA configurado nas aplicações críticas
+- ✔ ScaleUp e ScaleDown customizados implementados
+- ✔ Locust implantado no cluster
+- ✔ Stress test executado com carga real
+- ✔ Escalabilidade automática validada
+- ✔ Métricas acompanhadas em Grafana
+- ✔ Ajustes adicionais em NGINX e NetworkPolicy realizados
+- ✔ Problemas de OOMKilled identificados e analisados
+- ✔ Múltiplas execuções realizadas para refinamento
 
