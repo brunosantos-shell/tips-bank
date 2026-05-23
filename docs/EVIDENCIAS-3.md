@@ -1,6 +1,7 @@
 # Evidências Semana 3
 **Projeto:** TipsBank  
-**Objetivo da semana**: tornar o TipsBank resiliente (probes, affinity) e observável (kube-prometheus), com HPA escalando sob carga gerada pelo Locust.**Data:** 16/05/2026  
+**Objetivo da semana**: tornar o TipsBank resiliente (probes, affinity) e observável (kube-prometheus), com HPA escalando sob carga gerada pelo Locust.
+**Data:** 16/05/2026  
 **Responsável:** Bruno dos Santos
 
 ---
@@ -1471,3 +1472,268 @@ Manifestos utilizados:
 - ✔ Problemas de OOMKilled identificados e analisados
 - ✔ Múltiplas execuções realizadas para refinamento
 
+---
+
+### **Etapa 3.8 — DaemonSet de Coleta**
+
+### Objetivo da Etapa
+
+Implementar um `DaemonSet` no cluster Kubernetes para executar um pod em cada node worker, simulando uma coleta simples de informações do node.
+
+O objetivo foi validar o comportamento de um DaemonSet garantindo que:
+
+- exista uma réplica em cada worker
+- o DaemonSet rode inclusive em node com taint
+- os pods coletem informações básicas do node
+- os logs demonstrem execução contínua
+
+### 1. Criação do DaemonSet
+
+Foi criado um `DaemonSet` simples utilizando uma imagem leve, com a função de executar periodicamente comandos de diagnóstico do node.
+
+O container foi configurado para imprimir:
+
+- hostname do node/pod
+- uso de disco
+- data/hora da coleta
+
+Exemplo de comando utilizado no container:
+
+```bash
+while true; do
+  echo "==== coleta node ===="
+  date
+  hostname
+  df -h
+  sleep 30
+done
+```
+
+- 🖼️ Manifesto/Aplicação do DaemonSet:
+
+![daemonset-apply.png](../evidencias/semana-3/etapa-3.8/daemonset-apply.png)
+
+### 2. Configuração de Tolerations
+
+Como existe node com taint:
+
+```text
+compliance=strict:NoSchedule
+```
+
+foi necessário adicionar `tolerations` ao DaemonSet para permitir execução também nesse worker isolado.
+
+Configuração aplicada:
+
+```yaml
+tolerations:
+  - key: "compliance"
+    operator: "Equal"
+    value: "strict"
+    effect: "NoSchedule"
+```
+
+- 🖼️ Toleration configurada no DaemonSet:
+
+![daemonset-tolerations.png](../evidencias/semana-3/etapa-3.8/daemonset-tolerations.png)
+
+### 3. Validação do DaemonSet
+
+Foi validado que o DaemonSet criou pods nos workers esperados.
+
+```bash
+kubectl get ds -A
+```
+
+Também pode ser usado:
+
+```bash
+kubectl get ds -n tipsbank-monitoring
+```
+
+### Critério esperado
+
+O DaemonSet deve apresentar:
+
+```text
+DESIRED == CURRENT == READY
+```
+
+igual ao número de workers do cluster.
+
+Exemplo esperado:
+
+```text
+NAME           DESIRED   CURRENT   READY
+node-agent     2         2         2
+```
+
+- 🖼️ DaemonSet com desired/current/ready:
+
+![daemonset-ready.png](../evidencias/semana-3/etapa-3.8/daemonset-ready.png)
+
+### 4. Validação dos Pods do DaemonSet
+
+Foi verificada a distribuição dos pods criados pelo DaemonSet nos nodes.
+
+```bash
+kubectl get pods -o wide -n tipsbank-monitoring -l app=node-agent
+```
+
+- 🖼️ Pods do DaemonSet distribuídos nos workers:
+
+![daemonset-pods-wide.png](../evidencias/semana-3/etapa-3.8/daemonset-pods-wide.png)
+
+### 5. Validação dos Logs de Coleta
+
+Foi validado que os pods do DaemonSet estavam executando a rotina de coleta corretamente.
+
+```bash
+kubectl logs -n tipsbank-monitoring -l app=node-agent --tail=50
+```
+
+Ou para um pod específico:
+
+```bash
+kubectl logs -n tipsbank-monitoring <pod-node-agent>
+```
+
+- 🖼️ Logs do DaemonSet:
+
+![daemonset-logs.png](../evidencias/semana-3/etapa-3.8/daemonset-logs.png)
+
+### 6. Validação em Node com Taint
+
+Foi validado que o DaemonSet também executa no node com taint `compliance=strict:NoSchedule`.
+
+```bash
+kubectl describe node worker-k8s-02 | grep -i Taints
+```
+
+```bash
+kubectl get pods -o wide -n tipsbank-monitoring -l app=node-agent
+```
+
+- 🖼️ DaemonSet rodando em node com taint:
+
+![daemonset-tainted-node.png](../evidencias/semana-3/etapa-3.8/daemonset-tainted-node.png)
+
+## 7. Referência dos Manifestos Kubernetes (YAML)
+
+Manifestos utilizados nesta etapa:
+
+- 📄 [01-daemonset-node-logger.yaml](../k8s/etapa-3.8/01-daemonset-node-logger.yaml)
+
+### Conclusão
+
+- ✔ DaemonSet criado com sucesso
+- ✔ Um pod executando em cada worker
+- ✔ Coleta simples de informações do node implementada
+- ✔ Logs de hostname e uso de disco validados
+- ✔ Toleration configurada para node com taint
+- ✔ DaemonSet executando inclusive no worker com `compliance=strict:NoSchedule`
+- ✔ `DESIRED`, `CURRENT` e `READY` iguais ao número de workers
+
+---
+
+###  Checkpoint — Semana 3
+
+- ✔ Todas as APIs configuradas com probes completas:
+  - Liveness Probe
+  - Readiness Probe
+  - Startup Probe
+
+- ✔ Postgres configurado com probes customizadas utilizando `pg_isready`
+
+- ✔ Web (`nginx-unprivileged`) configurado com `/healthz`
+
+- ✔ Testes de restart validados:
+  - `kill 1` reiniciando containers automaticamente
+  - eventos `Killing` e `Started` registrados pelo Kubernetes
+
+- ✔ Estratégia de rollout configurada:
+  - `RollingUpdate`
+  - `maxSurge=1`
+  - `maxUnavailable=0`
+
+- ✔ Rollback validado com:
+  - `kubectl rollout undo`
+  - `kubectl rollout history`
+
+- ✔ Deploy quebrado validado sem indisponibilidade:
+  - versão antiga permaneceu atendendo tráfego
+  - rollout interrompido automaticamente pelo Kubernetes
+
+- ✔ AntiAffinity configurado para distribuição das réplicas entre nodes
+
+- ✔ StatefulSets Postgres Primary/Replica separados em nodes distintos
+
+- ✔ Node com taint configurado:
+  - `compliance=strict:NoSchedule`
+
+- ✔ Apenas workloads autorizados com `tolerations`
+
+- ✔ QoS Classes configuradas corretamente:
+  - APIs em modo `Burstable`
+  - nenhum pod em `BestEffort`
+
+- ✔ kube-prometheus-stack instalado com:
+  - Prometheus
+  - Grafana
+  - Alertmanager
+
+- ✔ Grafana publicado via Ingress com TLS
+
+- ✔ ServiceMonitors configurados para:
+  - api-contas
+  - api-transacoes
+  - auditoria
+
+- ✔ Dashboard Grafana exibindo:
+  - Requests/s
+  - p50/p95/p99
+  - CPU por pod
+  - Memória por pod
+  - distribuição de status HTTP
+
+- ✔ 4 alertas PrometheusRule implementados e disparados:
+  - `TipsBankApiDown`
+  - `TipsBankP99Alto`
+  - `TipsBankErroAltoApi`
+  - `TipsBankPodCrashLoop`
+
+- ✔ Metrics Server instalado e operacional
+
+- ✔ HPAs configurados com métricas diferentes:
+  - CPU
+  - Memory
+  - ContainerResource
+
+- ✔ ScaleUp e ScaleDown configurados com behavior customizado
+
+- ✔ Locust implantado no cluster via Deployment
+
+- ✔ Locust publicado via Ingress:
+  - `locust.tipsbank.local`
+
+- ✔ Stress test executado:
+  - 200 usuários simultâneos
+  - ramp-up 20
+  - duração 300 segundos
+
+- ✔ HPA reagindo automaticamente durante o stress test:
+  - aumento de réplicas observado em tempo real
+
+- ✔ Testes validaram:
+  - criação de usuários
+  - criação de contas
+  - transferências financeiras
+  - atualização do extrato
+
+- ✔ Eventos de `OOMKilled` identificados e documentados durante alta carga
+- ✔ DaemonSet implementado para coleta/log dos nodes
+- ✔ DaemonSet executando em todos os workers do cluster
+- ✔ Tolerations aplicadas no DaemonSet para execução em nodes com taint
+- ✔ Logs de coleta contínua validados via `kubectl logs`
+
+Seguir para documentação: [EVIDENCIAS-4](EVIDENCIAS-4.md#evidências-semana-4) 
