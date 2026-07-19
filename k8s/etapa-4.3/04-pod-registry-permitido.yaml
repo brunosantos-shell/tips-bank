@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: registry-permitido
+  namespace: novo-teste
+  labels:
+    app: registry-permitido
+    team: teste
+    env: lab
+spec:
+  containers:
+    - name: teste
+      image: ghcr.io/brunosantostecinf-shell/api-contas:1.0.0
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        readOnlyRootFilesystem: true
+        allowPrivilegeEscalation: false

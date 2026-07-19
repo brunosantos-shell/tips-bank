@@ -1,0 +1,85 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: restrict-image-registries
+  annotations:
+    policies.kyverno.io/title: Restrict Image Registries
+    policies.kyverno.io/category: Supply Chain Security
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      Permite somente imagens provenientes do registry aprovado
+      ghcr.io/SEU-USUARIO.
+spec:
+  validationFailureAction: Enforce
+  background: true
+
+  rules:
+    - name: validate-container-registries
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaceSelector:
+                matchLabels:
+                  registry-policy: enabled
+
+      validate:
+        message: >-
+          Registry não permitido. As imagens devem ser obtidas somente
+          de ghcr.io/SEU-USUARIO/.
+        pattern:
+          spec:
+            containers:
+              - image: "ghcr.io/brunosantostecinf-shell/*"
+
+    - name: validate-init-container-registries
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaceSelector:
+                matchLabels:
+                  registry-policy: enabled
+
+      preconditions:
+        all:
+          - key: "{{ request.object.spec.initContainers || `[]` | length(@) }}"
+            operator: GreaterThan
+            value: 0
+
+      validate:
+        message: >-
+          Registry não permitido em initContainer. As imagens devem ser
+          obtidas somente de ghcr.io/SEU-USUARIO/.
+        pattern:
+          spec:
+            initContainers:
+              - image: "ghcr.io/brunosantostecinf-shell/*"
+
+    - name: validate-ephemeral-container-registries
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaceSelector:
+                matchLabels:
+                  registry-policy: enabled
+
+      preconditions:
+        all:
+          - key: "{{ request.object.spec.ephemeralContainers || `[]` | length(@) }}"
+            operator: GreaterThan
+            value: 0
+
+      validate:
+        message: >-
+          Registry não permitido em ephemeralContainer. As imagens devem
+          ser obtidas somente de ghcr.io/SEU-USUARIO/.
+        pattern:
+          spec:
+            ephemeralContainers:
+              - image: "ghcr.io/brunosantostecinf-shell/*"

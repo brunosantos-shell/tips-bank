@@ -465,7 +465,7 @@ securityContext:
 
 Com essa configuração, workloads criados sem um `securityContext` explícito passam a receber automaticamente controles mínimos de segurança.
 
-## 1. Criação da ClusterPolicy Mutate
+### 1. Criação da ClusterPolicy Mutate
 
 Foi criada a ClusterPolicy:
 
@@ -933,4 +933,557 @@ Manifestos utilizados nesta etapa:
 - ✔ APIs do TipsBank permaneceram funcionais após a aplicação da política
 
 ---
+
+### **Etapa 4.3 — Kyverno: Generate — NetworkPolicy Automática por Namespace**
+
+### Objetivo da Etapa
+
+Implementar políticas Kyverno para:
+
+1. Criar automaticamente uma `NetworkPolicy` do tipo `default-deny` sempre que um novo namespace for criado.
+2. Restringir a utilização de imagens de containers, permitindo somente imagens provenientes do registry autorizado do projeto.
+
+Com essas políticas, novos namespaces passam a receber automaticamente uma camada mínima de isolamento de rede, enquanto imagens provenientes de registries não confiáveis são bloqueadas pelo Admission Controller.
+
+### 1. Criação da ClusterPolicy Generate
+
+Foi criada a ClusterPolicy:
+
+```text
+generate-default-deny-netpol
+```
+
+A política utiliza uma regra do tipo `generate` para criar automaticamente uma `NetworkPolicy` dentro de cada novo namespace criado no cluster.
+
+A política gerada bloqueia, por padrão:
+
+- todo tráfego de entrada;
+- todo tráfego de saída.
+
+### Estrutura esperada da NetworkPolicy
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+```
+
+O seletor vazio:
+
+```yaml
+podSelector: {}
+```
+
+faz com que a política seja aplicada a todos os Pods do namespace.
+
+### 2. Aplicação da ClusterPolicy
+
+A política foi aplicada utilizando o manifesto:
+
+```text
+01-generate-default-deny-netpol.yaml
+```
+
+### Comando utilizado
+
+```bash
+kubectl apply -f 01-generate-default-deny-netpol.yaml
+```
+
+### Validação da ClusterPolicy
+
+```bash
+kubectl get cpol
+```
+
+Para consultar especificamente a política:
+
+```bash
+kubectl get clusterpolicy generate-default-deny-netpol
+```
+
+Para visualizar informações detalhadas:
+
+```bash
+kubectl describe clusterpolicy generate-default-deny-netpol
+```
+
+### Evidência
+
+🖼️ ClusterPolicy `generate-default-deny-netpol` criada e ativa:
+
+![kubectl-get-cpol-generate-default-deny-netpol.png](../evidencias/semana-4/etapa-4.3/kubectl-get-cpol-generate-default-deny-netpol.png)
+
+### Resultado
+
+- ✔ ClusterPolicy criada com sucesso
+- ✔ Regra do tipo `generate` reconhecida pelo Kyverno
+- ✔ Política pronta para gerar recursos em novos namespaces
+- ✔ Admission Controller operando corretamente
+
+## 3. Criação do Namespace de Teste
+
+Para validar a geração automática da `NetworkPolicy`, foi criado um novo namespace.
+
+### Comando utilizado
+
+```bash
+kubectl create namespace novo-teste
+```
+
+Também pode ser utilizada a forma abreviada:
+
+```bash
+kubectl create ns novo-teste
+```
+
+### Validação do namespace
+
+```bash
+kubectl get namespace novo-teste
+```
+
+### Resultado esperado
+
+```text
+NAME         STATUS   AGE
+novo-teste   Active   ...
+```
+
+### Resultado
+
+- ✔ Namespace `novo-teste` criado
+- ✔ Evento de criação processado pelo Kyverno
+- ✔ Regra `generate` executada automaticamente
+
+### 4. Validação da NetworkPolicy Gerada
+
+Após a criação do namespace, foi verificada a existência da `NetworkPolicy` gerada automaticamente.
+
+### Comando utilizado
+
+```bash
+kubectl get networkpolicy -n novo-teste
+```
+
+Forma abreviada:
+
+```bash
+kubectl get netpol -n novo-teste
+```
+
+### Resultado esperado
+
+```text
+NAME               POD-SELECTOR   AGE
+default-deny-all   <none>         ...
+```
+
+### Evidência
+
+🖼️ NetworkPolicy criada automaticamente no namespace `novo-teste`:
+
+![kubectl-get-networkpolicy-n-novo-teste.png](../evidencias/semana-4/etapa-4.3/kubectl-get-networkpolicy-n-novo-teste.png)
+
+### Resultado
+
+- ✔ NetworkPolicy criada sem aplicação manual de manifesto
+- ✔ Recurso gerado automaticamente pelo Kyverno
+- ✔ Política criada dentro do namespace correto
+- ✔ Todos os Pods do namespace abrangidos pelo seletor
+
+### 5. Inspeção da NetworkPolicy Default-Deny
+
+Para validar o conteúdo da política gerada, foi realizada a inspeção completa do recurso.
+
+### Comando utilizado
+
+```bash
+kubectl get networkpolicy default-deny-all \
+  -n novo-teste \
+  -o yaml
+```
+
+Também pode ser utilizado:
+
+```bash
+kubectl describe networkpolicy default-deny-all \
+  -n novo-teste
+```
+
+### Configuração validada
+
+```yaml
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+```
+
+A ausência de regras `ingress` e `egress` permite que a política bloqueie todo o tráfego por padrão.
+
+### Evidência
+
+🖼️ Conteúdo da NetworkPolicy `default-deny-all`:
+
+![kubectl-get-networkpolicy-default-deny-all.png](../evidencias/semana-4/etapa-4.3/kubectl-get-networkpolicy-default-deny-all.png)
+
+### Resultado
+
+- ✔ Tráfego de entrada bloqueado por padrão
+- ✔ Tráfego de saída bloqueado por padrão
+- ✔ Política aplicada a todos os Pods do namespace
+- ✔ Isolamento inicial implementado automaticamente
+
+### 6. Política de Restrição de Registries
+
+Também foi criada uma ClusterPolicy para impedir a utilização de imagens provenientes de registries não autorizados.
+
+A política foi aplicada utilizando o manifesto:
+
+```text
+02-restrict-image-registries.yaml
+```
+
+### Registry autorizado
+
+A política permite somente imagens que correspondam ao padrão:
+
+```text
+ghcr.io/seu-user/*
+```
+
+O valor `seu-user` deve corresponder ao usuário ou organização real utilizado no GitHub Container Registry.
+
+Exemplo:
+
+```text
+ghcr.io/vilson7/api-contas:v1.0.0
+```
+
+### Registries externos bloqueados
+
+Exemplos que devem ser rejeitados:
+
+```text
+docker.io/nginx
+nginx:latest
+quay.io/exemplo/aplicacao
+registry.k8s.io/exemplo
+```
+
+Quando o registry não é informado explicitamente, o Kubernetes normalmente utiliza o Docker Hub como origem padrão.
+
+Por exemplo:
+
+```text
+nginx:1.27
+```
+
+equivale à utilização de uma imagem externa do Docker Hub.
+
+### 7. Aplicação da Política de Registry
+
+### Comando utilizado
+
+```bash
+kubectl apply -f 02-restrict-image-registries.yaml
+```
+
+### Validação da política
+
+```bash
+kubectl get clusterpolicy restrict-image-registries
+```
+
+Para consultar detalhes:
+
+```bash
+kubectl describe clusterpolicy restrict-image-registries
+```
+
+Também pode ser utilizado:
+
+```bash
+kubectl get cpol
+```
+
+### Resultado
+
+- ✔ ClusterPolicy de restrição criada
+- ✔ Registry autorizado configurado
+- ✔ Política operando em modo de bloqueio
+- ✔ Imagens externas sujeitas à validação do Admission Controller
+
+### 8. Teste com Registry Externo
+
+Para validar o bloqueio, foi utilizado o manifesto:
+
+```text
+03-pod-registry-externo.yaml
+```
+
+O Pod utiliza uma imagem proveniente de registry não autorizado.
+
+### Exemplo
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: teste-registry-externo
+  namespace: novo-teste
+  labels:
+    app: teste-registry-externo
+    team: tipsbank
+    env: lab
+spec:
+  containers:
+    - name: nginx
+      image: docker.io/library/nginx:1.27-alpine
+```
+
+### Comando utilizado
+
+```bash
+kubectl apply -f 03-pod-registry-externo.yaml
+```
+
+### Resultado esperado
+
+A criação do Pod deve ser rejeitada pelo Admission Controller.
+
+Exemplo de retorno:
+
+```text
+Error from server:
+
+admission webhook "validate.kyverno.svc-fail" denied the request
+```
+
+A mensagem também deve indicar que a imagem não pertence ao registry autorizado.
+
+### Evidência
+
+🖼️ Tentativa de criação utilizando registry externo rejeitada:
+
+![teste-registry-denied.png](../evidencias/semana-4/etapa-4.3/teste-registry-denied.png)
+
+### Resultado
+
+- ✔ Imagem externa identificada
+- ✔ Criação do Pod rejeitada
+- ✔ Docker Hub não autorizado pela política
+- ✔ Restrição aplicada pelo Kyverno
+
+### 9. Teste com Registry Autorizado
+
+Para validar a permissão, foi utilizado o manifesto:
+
+```text
+04-pod-registry-permitido.yaml
+```
+
+O Pod utiliza uma imagem armazenada no registry autorizado.
+
+### Exemplo
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: teste-registry-permitido
+  namespace: novo-teste
+  labels:
+    app: teste-registry-permitido
+    team: tipsbank
+    env: lab
+spec:
+  containers:
+    - name: aplicacao
+      image: ghcr.io/seu-user/api-contas:v1.0.0
+```
+
+### Comando utilizado
+
+```bash
+kubectl apply -f 04-pod-registry-permitido.yaml
+```
+
+### Validação
+
+```bash
+kubectl get pod teste-registry-permitido \
+  -n novo-teste
+```
+
+### Resultado esperado
+
+```text
+NAME                         READY   STATUS    RESTARTS   AGE
+teste-registry-permitido     1/1     Running   0          ...
+```
+
+Caso a imagem exista, mas o registry seja privado, pode ser necessário configurar um `imagePullSecret`.
+
+A validação da política pode ser considerada bem-sucedida mesmo se o Pod apresentar:
+
+```text
+ImagePullBackOff
+```
+
+desde que o recurso tenha sido aceito pelo Admission Controller. Nesse caso, a falha está relacionada ao acesso ou à existência da imagem, não à policy de registry.
+
+### Evidência
+
+🖼️ Imagem proveniente do registry autorizado aceita:
+
+![teste-registry-allowed.png](../evidencias/semana-4/etapa-4.3/teste-registry-allowed.png)
+
+### Resultado
+
+- ✔ Imagem do registry autorizado aceita
+- ✔ Recurso admitido pelo Kyverno
+- ✔ Padrão `ghcr.io/seu-user/*` validado
+- ✔ Restrição não bloqueou imagens confiáveis
+
+### 10. Validação Consolidada das ClusterPolicies
+
+Para visualizar as políticas implementadas:
+
+```bash
+kubectl get cpol
+```
+
+Resultado esperado:
+
+```text
+NAME                            READY
+generate-default-deny-netpol    True
+restrict-image-registries       True
+```
+
+Também podem aparecer as políticas implementadas nas etapas anteriores:
+
+```text
+disallow-root-user
+disallow-latest-tag
+require-labels
+mutate-security-context
+generate-default-deny-netpol
+restrict-image-registries
+```
+
+### Validação detalhada
+
+```bash
+kubectl get cpol \
+  generate-default-deny-netpol \
+  restrict-image-registries
+```
+
+### Resultado
+
+- ✔ Política Generate pronta e ativa
+- ✔ Política Validate de registry pronta e ativa
+- ✔ ClusterPolicies reconhecidas pelo Kyverno
+- ✔ Regras aplicadas durante a admissão de recursos
+
+---
+
+### 11. Considerações sobre NetworkPolicy Default-Deny
+
+A `NetworkPolicy` gerada bloqueia todo o tráfego do namespace.
+
+Após sua criação, aplicações implantadas no namespace podem precisar de políticas adicionais para permitir comunicações específicas.
+
+Exemplos:
+
+- acesso ao DNS do cluster;
+- comunicação entre aplicações;
+- acesso ao banco de dados;
+- comunicação com o Ingress Controller;
+- acesso a serviços externos autorizados;
+- comunicação com ferramentas de monitoramento.
+
+Uma liberação comum é o acesso ao DNS:
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns-egress
+  namespace: novo-teste
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+```
+
+A política `default-deny-all` não deve ser removida. As permissões necessárias devem ser implementadas por meio de políticas adicionais e específicas.
+
+### 12. Limpeza do Ambiente de Teste
+
+Após a coleta das evidências, os recursos de teste podem ser removidos.
+
+### Remover o namespace
+
+```bash
+kubectl delete namespace novo-teste
+```
+
+A exclusão do namespace também remove:
+
+- Pods de teste;
+- NetworkPolicies;
+- demais recursos existentes dentro dele.
+
+Para remover somente os Pods:
+
+```bash
+kubectl delete pod teste-registry-externo \
+  teste-registry-permitido \
+  -n novo-teste \
+  --ignore-not-found
+```
+
+### Resultado
+
+- ✔ Recursos temporários removidos
+- ✔ Políticas Kyverno mantidas no cluster
+- ✔ Ambiente preparado para novos testes
+
+### 13. Referência dos Manifestos Kubernetes
+
+- 📄 [01-generate-default-deny-netpol.yaml](../k8s/etapa-4.3/01-generate-default-deny-netpol.yaml)
+- 📄 [02-restrict-image-registries.yaml](../k8s/etapa-4.3/02-restrict-image-registries.yaml)
+- 📄 [03-pod-registry-externo.yaml](../k8s/etapa-4.3/03-pod-registry-externo.yaml)
+- 📄 [04-pod-registry-permitido.yaml](../k8s/etapa-4.3/04-pod-registry-permitido.yaml)
+
+### Conclusão
+
+- ✔ Kyverno configurado para gerar automaticamente recursos Kubernetes
+- ✔ Novos namespaces recebem uma NetworkPolicy `default-deny`
+- ✔ Isolamento de rede aplicado desde a criação do namespace
+- ✔ Registries externos bloqueados pelo Admission Controller
+- ✔ Somente imagens do registry autorizado são permitidas
+- ✔ Políticas de segurança aplicadas de maneira automática e centralizada
+
 
