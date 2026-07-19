@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ruim-sem-labels
+  namespace: tipsbank-contas
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ruim-sem-labels
+  template:
+    metadata:
+      labels:
+        app: ruim-sem-labels
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:1.27
+          securityContext:
+            runAsUser: 101
+            runAsNonRoot: true

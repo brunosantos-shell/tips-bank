@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ruim-latest
+  namespace: default
+  labels:
+    app: ruim-latest
+    team: teste
+    env: lab
+spec:
+  containers:
+    - name: nginx
+      image: nginx:latest
+      securityContext:
+        runAsUser: 101
+        runAsNonRoot: true

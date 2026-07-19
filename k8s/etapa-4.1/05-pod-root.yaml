@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ruim-root
+  namespace: default
+  labels:
+    app: ruim-root
+    team: teste
+    env: lab
+spec:
+  containers:
+    - name: nginx
+      image: nginx:1.27
+      securityContext:
+        runAsUser: 0
