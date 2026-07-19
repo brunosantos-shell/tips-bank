@@ -20,8 +20,6 @@ Nesta etapa foram implementadas políticas para:
 
 Todas as políticas foram configuradas em modo **Enforce**, impedindo a criação de recursos que violem as regras.
 
----
-
 ### 1. Instalação do Kyverno
 
 Foi realizada a instalação do Kyverno utilizando Helm.
@@ -57,8 +55,6 @@ kubectl rollout status deployment \
 - ✔ Controladores iniciados
 - ✔ Admission Controller operacional
 
----
-
 ### 2. Validação dos Pods do Kyverno
 
 Foi validado que todos os componentes do Kyverno encontram-se em execução.
@@ -80,8 +76,6 @@ kubectl get pods -n kyverno
 - ✔ Todos os pods em estado Running
 - ✔ Componentes operacionais
 
----
-
 ### 3. Validação do Admission Webhook
 
 Foi validado que o Admission Webhook responsável pela aplicação das políticas foi criado corretamente.
@@ -102,8 +96,6 @@ kubectl get validatingwebhookconfiguration
 
 - ✔ Admission Webhook registrado
 - ✔ Políticas sendo interceptadas durante criação dos recursos
-
----
 
 ### 4. Criação da ClusterPolicy — Disallow Root User
 
@@ -142,8 +134,6 @@ kubectl describe clusterpolicy disallow-root-user
 - ✔ Status Ready=True
 - ✔ Modo Enforce habilitado
 
----
-
 ### 5. Criação da ClusterPolicy — Disallow Latest Tag
 
 Foi criada uma política para impedir utilização de imagens utilizando a tag `latest`.
@@ -176,8 +166,6 @@ kubectl describe clusterpolicy disallow-latest-tag
 - ✔ Status Ready=True
 - ✔ Modo Enforce habilitado
 
----
-
 ### 6. Criação da ClusterPolicy — Require Labels
 
 Foi criada uma política exigindo a presença das labels obrigatórias em todos os Deployments, StatefulSets e DaemonSets.
@@ -206,8 +194,6 @@ kubectl describe clusterpolicy require-labels
 - ✔ Labels obrigatórias definidas
 - ✔ Status Ready=True
 
----
-
 ### 7. Validação das ClusterPolicies
 
 Foi validado que todas as políticas encontram-se ativas.
@@ -235,8 +221,6 @@ Todas apresentando:
 ```text
 READY=True
 ```
-
----
 
 ### 8. Teste da Política Disallow Latest
 
@@ -268,8 +252,6 @@ admission webhook denied the request
 - ✔ Criação bloqueada
 - ✔ Política funcionando corretamente
 
----
-
 ### 9. Teste da Política Disallow Root User
 
 Foi realizada tentativa de criação de workload executando como usuário root.
@@ -298,8 +280,6 @@ admission webhook denied the request
 - ✔ Recurso rejeitado
 - ✔ Execução como root bloqueada
 
----
-
 ### 10. Teste da Política Require Labels
 
 Foi realizada tentativa de criação de Deployment sem as labels obrigatórias.
@@ -321,35 +301,129 @@ admission webhook denied the request
 - ✔ Deployment rejeitado
 - ✔ Obrigatoriedade de labels validada
 
----
+### 11. Adequação dos Workloads do TipsBank
 
-### 11. Validação das Aplicações Existentes
+Após a criação da ClusterPolicy `require-labels`, foi identificada a necessidade de adequar os workloads já existentes da aplicação TipsBank, adicionando as labels obrigatórias exigidas pela política.
 
-Após aplicação das políticas foi validado que todos os workloads existentes do TipsBank permaneciam em conformidade.
+As labels obrigatórias definidas foram:
 
-Foram verificadas:
+- `app`
+- `team`
+- `env`
 
-- labels obrigatórias
-- execução non-root
-- imagens versionadas
+Para evitar a recriação dos recursos, as labels foram adicionadas diretamente aos objetos em execução utilizando o comando `kubectl label`.
 
-Validação:
+### Comandos utilizados
 
 ```bash
-kubectl get pods -A
+kubectl label deployment auditoria \
+  -n tipsbank-auditoria \
+  app=auditoria team=tipsbank env=lab --overwrite
 
-kubectl get deploy,statefulset,daemonset -A --show-labels
+kubectl label deployment api-contas \
+  -n tipsbank-contas \
+  app=api-contas team=tipsbank env=lab --overwrite
+
+kubectl label statefulset postgres \
+  -n tipsbank-contas \
+  app=postgres team=tipsbank env=lab --overwrite
+
+kubectl label statefulset postgres-replica \
+  -n tipsbank-contas \
+  app=postgres-replica team=tipsbank env=lab --overwrite
+
+kubectl label deployment api-transacoes \
+  -n tipsbank-transacoes \
+  app=api-transacoes team=tipsbank env=lab --overwrite
+
+kubectl label deployment api-transacoes-v2 \
+  -n tipsbank-transacoes \
+  app=api-transacoes-v2 team=tipsbank env=lab --overwrite
+
+kubectl label deployment web \
+  -n tipsbank-web \
+  app=web team=tipsbank env=lab --overwrite
+
+kubectl label deployment locust \
+  -n tipsbank-monitoring \
+  app=locust team=tipsbank env=lab --overwrite
+
+kubectl label daemonset node-logger \
+  -n tipsbank-monitoring \
+  app=node-logger team=tipsbank env=lab --overwrite
 ```
 
 ### Resultado
 
-- ✔ Nenhum workload existente foi bloqueado
-- ✔ Ambiente permaneceu operacional
-- ✔ Aplicações compatíveis com as políticas
+- ✔ Labels adicionadas com sucesso aos workloads do TipsBank
+- ✔ Nenhum recurso precisou ser recriado
+- ✔ Nenhum pod da aplicação sofreu indisponibilidade durante a alteração
+- ✔ Todos os recursos passaram a atender aos requisitos da ClusterPolicy `require-labels`
 
 ---
 
-### 12. Referência dos Manifestos Kubernetes (YAML)
+### 12. Validação das Labels Aplicadas
+
+Após a adequação dos workloads, foi realizada a validação das labels configuradas em todos os Deployments, StatefulSets e DaemonSets pertencentes ao projeto TipsBank.
+
+### Comando utilizado
+
+```bash
+for ns in \
+  tipsbank-auditoria \
+  tipsbank-contas \
+  tipsbank-monitoring \
+  tipsbank-transacoes \
+  tipsbank-web
+do
+  echo
+  echo "===== Namespace: $ns ====="
+
+  kubectl get deployment,statefulset,daemonset \
+    -n "$ns" \
+    --show-labels
+done
+```
+
+### Evidência
+
+🖼️ Validação das labels dos workloads do TipsBank:
+
+![kubectl-get-workloads-tipsbank-labels.png](../evidencias/semana-4/etapa-4.1/kubectl-get-workloads-tipsbank-labels.png)
+
+### Resultado
+
+Foi validado que todos os workloads próprios da aplicação TipsBank possuem as labels obrigatórias definidas pela política:
+
+```text
+app=<nome-do-componente>
+team=tipsbank
+env=lab
+```
+
+Os seguintes recursos foram verificados:
+
+- Deployment `auditoria`
+- Deployment `api-contas`
+- Deployment `api-transacoes`
+- Deployment `api-transacoes-v2`
+- Deployment `web`
+- Deployment `locust`
+- StatefulSet `postgres`
+- StatefulSet `postgres-replica`
+- DaemonSet `node-logger`
+
+### Resultado da validação
+
+- ✔ Todos os Deployments do TipsBank possuem as labels obrigatórias
+- ✔ Todos os StatefulSets do TipsBank possuem as labels obrigatórias
+- ✔ Todos os DaemonSets do TipsBank possuem as labels obrigatórias
+- ✔ Os workloads permaneceram disponíveis durante toda a adequação
+- ✔ Os recursos próprios do TipsBank encontram-se em conformidade com a ClusterPolicy `require-labels`
+
+
+
+### 13. Referência dos Manifestos Kubernetes (YAML)
 
 Manifestos utilizados nesta etapa:
 
@@ -357,9 +431,11 @@ Manifestos utilizados nesta etapa:
 - 📄 [02-disallow-latest-tag.yaml](../k8s/etapa-4.1/02-disallow-latest-tag.yaml)
 - 📄 [03-require-labels.yaml](../k8s/etapa-4.1/03-require-labels.yaml)
 
----
+- 📄 [04-pod-latest.yaml](../k8s/etapa-4.1/04-pod-latest.yaml) 
+- 📄 [05-pod-root.yaml](../k8s/etapa-4.1/05-pod-root.yaml) 
+- 📄 [06-deployment-sem-labels.yaml](../k8s/etapa-4.1/06-deployment-sem-labels.yaml)
 
-## Conclusão
+### Conclusão
 
 - ✔ Kyverno instalado com sucesso utilizando Helm
 - ✔ Admission Webhook operacional no cluster
@@ -371,3 +447,4 @@ Manifestos utilizados nesta etapa:
 - ✔ Todas as ClusterPolicies em estado **READY=True**
 
 ---
+
