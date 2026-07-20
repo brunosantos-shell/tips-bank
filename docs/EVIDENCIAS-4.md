@@ -1027,7 +1027,7 @@ kubectl describe clusterpolicy generate-default-deny-netpol
 - ✔ Política pronta para gerar recursos em novos namespaces
 - ✔ Admission Controller operando corretamente
 
-## 3. Criação do Namespace de Teste
+### 3. Criação do Namespace de Teste
 
 Para validar a geração automática da `NetworkPolicy`, foi criado um novo namespace.
 
@@ -1396,8 +1396,6 @@ kubectl get cpol \
 - ✔ ClusterPolicies reconhecidas pelo Kyverno
 - ✔ Regras aplicadas durante a admissão de recursos
 
----
-
 ### 11. Considerações sobre NetworkPolicy Default-Deny
 
 A `NetworkPolicy` gerada bloqueia todo o tráfego do namespace.
@@ -1486,4 +1484,934 @@ kubectl delete pod teste-registry-externo \
 - ✔ Somente imagens do registry autorizado são permitidas
 - ✔ Políticas de segurança aplicadas de maneira automática e centralizada
 
+---
 
+### **Etapa 4.4 — RBAC: Perfis com Certificados X.509**
+
+### Objetivo da Etapa
+
+Implementar controle de acesso baseado em funções no Kubernetes utilizando RBAC e autenticação por certificados X.509.
+
+Foram criados quatro usuários humanos, cada um com:
+
+- chave privada própria;
+- Certificate Signing Request — CSR;
+- certificado de cliente aprovado pela CA do cluster;
+- kubeconfig individual;
+- permissões específicas de acordo com sua função.
+
+Também foram criados dois ServiceAccounts para utilização pelas APIs do TipsBank.
+
+### 1. Perfis Implementados
+
+| Usuário | Tipo de acesso | Escopo | Permissões |
+|---|---|---|---|
+| `operador-contas` | Role | `tipsbank-contas` | `get`, `list` e `watch` em Pods e logs |
+| `operador-transacoes` | Role | `tipsbank-transacoes` | `get`, `list` e `watch` em Pods, logs e `exec` |
+| `auditor-global` | ClusterRole | Todos os namespaces | `get`, `list` e `watch` em Pods e logs |
+| `sre` | ClusterRoleBinding | Cluster inteiro | `cluster-admin` |
+
+O princípio do menor privilégio foi utilizado para limitar cada usuário somente às ações necessárias para sua função.
+
+### 2. Criação das Roles e RoleBindings
+
+As permissões dos operadores foram configuradas por meio do manifesto:
+
+```text
+01-rbac-operadores.yaml
+```
+
+### Comando utilizado
+
+```bash
+kubectl apply -f 01-rbac-operadores.yaml
+```
+
+### Resultado
+
+```text
+role.rbac.authorization.k8s.io/operador-contas created
+rolebinding.rbac.authorization.k8s.io/operador-contas created
+role.rbac.authorization.k8s.io/operador-transacoes created
+rolebinding.rbac.authorization.k8s.io/operador-transacoes created
+```
+
+### Recursos criados
+
+No namespace `tipsbank-contas`:
+
+- Role `operador-contas`;
+- RoleBinding `operador-contas`.
+
+No namespace `tipsbank-transacoes`:
+
+- Role `operador-transacoes`;
+- RoleBinding `operador-transacoes`.
+
+### Resultado da etapa
+
+- ✔ Role do operador de contas criada
+- ✔ RoleBinding do operador de contas criado
+- ✔ Role do operador de transações criada
+- ✔ RoleBinding do operador de transações criado
+- ✔ Permissões limitadas aos respectivos namespaces
+
+### 3. Criação do Perfil Auditor Global
+
+O perfil de auditoria foi configurado pelo manifesto:
+
+```text
+02-rbac-auditor.yaml
+```
+
+### Comando utilizado
+
+```bash
+kubectl apply -f 02-rbac-auditor.yaml
+```
+
+### Resultado
+
+```text
+clusterrole.rbac.authorization.k8s.io/auditor-global created
+clusterrolebinding.rbac.authorization.k8s.io/auditor-global created
+```
+
+O usuário `auditor-global` recebeu acesso de leitura sobre Pods e logs em todos os namespaces.
+
+### Permissões esperadas
+
+```yaml
+verbs:
+  - get
+  - list
+  - watch
+```
+
+O perfil não possui permissão para:
+
+- criar recursos;
+- alterar recursos;
+- excluir recursos;
+- executar comandos nos containers.
+
+### Resultado da etapa
+
+- ✔ ClusterRole `auditor-global` criada
+- ✔ ClusterRoleBinding criado
+- ✔ Acesso de leitura global configurado
+- ✔ Operações destrutivas não concedidas
+
+### 4. Criação do Perfil SRE
+
+O perfil SRE foi associado à ClusterRole padrão:
+
+```text
+cluster-admin
+```
+
+A configuração foi aplicada por meio do manifesto:
+
+```text
+03-rbac-sre.yaml
+```
+
+### Comando utilizado
+
+```bash
+kubectl apply -f 03-rbac-sre.yaml
+```
+
+### Resultado
+
+```text
+clusterrolebinding.rbac.authorization.k8s.io/sre-cluster-admin created
+```
+
+O perfil `sre` recebeu acesso administrativo completo ao cluster.
+
+> O perfil `cluster-admin` deve ser utilizado com cuidado, pois permite executar qualquer ação e acessar todos os recursos do cluster.
+
+### Resultado da etapa
+
+- ✔ ClusterRoleBinding do SRE criado
+- ✔ Usuário associado à ClusterRole `cluster-admin`
+- ✔ Acesso administrativo total configurado
+
+### 5. Criação dos ServiceAccounts
+
+Foram criados dois ServiceAccounts para as APIs do TipsBank:
+
+| ServiceAccount | Namespace | Workload |
+|---|---|---|
+| `sa-api-contas` | `tipsbank-contas` | API de contas |
+| `sa-api-transacoes` | `tipsbank-transacoes` | APIs de transações |
+
+Os recursos foram configurados por meio do manifesto:
+
+```text
+04-serviceaccounts.yaml
+```
+
+### Comando utilizado
+
+```bash
+kubectl apply -f 04-serviceaccounts.yaml
+```
+
+### Resultado
+
+```text
+serviceaccount/sa-api-contas created
+role.rbac.authorization.k8s.io/api-contas-pod-reader created
+rolebinding.rbac.authorization.k8s.io/api-contas-pod-reader created
+serviceaccount/sa-api-transacoes created
+role.rbac.authorization.k8s.io/api-transacoes-pod-reader created
+rolebinding.rbac.authorization.k8s.io/api-transacoes-pod-reader created
+```
+
+### Validação
+
+```bash
+kubectl get serviceaccount \
+  -n tipsbank-contas \
+  sa-api-contas
+
+kubectl get serviceaccount \
+  -n tipsbank-transacoes \
+  sa-api-transacoes
+```
+
+### Resultado obtido
+
+```text
+NAME            AGE
+sa-api-contas   5m38s
+```
+
+```text
+NAME                AGE
+sa-api-transacoes   5m37s
+```
+
+### Resultado da etapa
+
+- ✔ ServiceAccount da API de contas criado
+- ✔ ServiceAccount da API de transações criado
+- ✔ Roles específicas criadas
+- ✔ RoleBindings associados aos ServiceAccounts
+
+### 6. Associação dos ServiceAccounts aos Deployments
+
+O ServiceAccount `sa-api-contas` foi associado ao Deployment `api-contas`.
+
+### Comando utilizado
+
+```bash
+kubectl patch deployment api-contas \
+  -n tipsbank-contas \
+  --type=merge \
+  -p '{
+    "spec": {
+      "template": {
+        "spec": {
+          "serviceAccountName": "sa-api-contas"
+        }
+      }
+    }
+  }'
+```
+
+O ServiceAccount `sa-api-transacoes` foi associado aos Deployments de transações.
+
+### API de transações
+
+```bash
+kubectl patch deployment api-transacoes \
+  -n tipsbank-transacoes \
+  --type=merge \
+  -p '{
+    "spec": {
+      "template": {
+        "spec": {
+          "serviceAccountName": "sa-api-transacoes"
+        }
+      }
+    }
+  }'
+```
+
+### API de transações v2
+
+```bash
+kubectl patch deployment api-transacoes-v2 \
+  -n tipsbank-transacoes \
+  --type=merge \
+  -p '{
+    "spec": {
+      "template": {
+        "spec": {
+          "serviceAccountName": "sa-api-transacoes"
+        }
+      }
+    }
+  }'
+```
+
+### Validação
+
+```bash
+kubectl get deployment api-contas \
+  -n tipsbank-contas \
+  -o jsonpath='{.spec.template.spec.serviceAccountName}{"\n"}'
+
+kubectl get deployment api-transacoes \
+  -n tipsbank-transacoes \
+  -o jsonpath='{.spec.template.spec.serviceAccountName}{"\n"}'
+
+kubectl get deployment api-transacoes-v2 \
+  -n tipsbank-transacoes \
+  -o jsonpath='{.spec.template.spec.serviceAccountName}{"\n"}'
+```
+
+### Resultado obtido
+
+```text
+sa-api-contas
+sa-api-transacoes
+sa-api-transacoes
+```
+
+### Resultado da etapa
+
+- ✔ API de contas associada ao ServiceAccount correto
+- ✔ API de transações associada ao ServiceAccount correto
+- ✔ API de transações v2 associada ao ServiceAccount correto
+
+> A alteração deve também ser incorporada aos manifestos originais dos Deployments. Caso contrário, uma futura execução de `kubectl apply` poderá remover o `serviceAccountName`.
+
+### 7. Geração das Chaves, CSRs e Certificados
+
+A geração dos certificados foi automatizada por meio do script:
+
+```text
+05-gerar-certificados.sh
+```
+
+### Preparação do script
+
+```bash
+chmod +x 05-gerar-certificados.sh
+```
+
+### Execução
+
+```bash
+./05-gerar-certificados.sh
+```
+
+O script realizou, para cada usuário:
+
+1. geração da chave privada;
+2. criação do CSR;
+3. envio do CSR ao Kubernetes;
+4. aprovação do CSR;
+5. obtenção do certificado assinado;
+6. gravação do certificado no diretório de evidências.
+
+### Certificados gerados
+
+- `operador-contas.crt`
+- `operador-transacoes.crt`
+- `auditor-global.crt`
+- `sre.crt`
+
+### Validação dos CSRs
+
+```bash
+kubectl get csr
+```
+
+### Resultado obtido
+
+```text
+NAME                  SIGNERNAME                            REQUESTEDDURATION   CONDITION
+auditor-global        kubernetes.io/kube-apiserver-client   365d                Approved,Issued
+operador-contas       kubernetes.io/kube-apiserver-client   365d                Approved,Issued
+operador-transacoes   kubernetes.io/kube-apiserver-client   365d                Approved,Issued
+sre                   kubernetes.io/kube-apiserver-client   365d                Approved,Issued
+```
+
+### Resultado da etapa
+
+- ✔ Quatro CSRs criados
+- ✔ Quatro CSRs aprovados
+- ✔ Certificados emitidos pela CA do cluster
+- ✔ Validade de 365 dias configurada
+- ✔ Todos os CSRs com estado `Approved,Issued`
+
+### 8. Validação do Certificado X.509
+
+Foi realizada a inspeção do certificado do usuário `operador-contas`.
+
+### Comando utilizado
+
+```bash
+openssl x509 \
+  -in evidencias/certificados/operador-contas.crt \
+  -noout \
+  -subject \
+  -issuer \
+  -dates
+```
+
+### Resultado obtido
+
+```text
+subject=O=tipsbank-users, CN=operador-contas
+issuer=CN=kubernetes
+notBefore=Jul 19 17:41:51 2026 GMT
+notAfter=Jul 19 17:41:51 2027 GMT
+```
+
+### Informações validadas
+
+- `CN=operador-contas`: identidade utilizada pelo RBAC;
+- `O=tipsbank-users`: grupo associado ao certificado;
+- `issuer=CN=kubernetes`: certificado emitido pela CA do cluster;
+- validade de um ano.
+
+### Resultado da etapa
+
+- ✔ Identidade presente no campo Common Name
+- ✔ Grupo presente no campo Organization
+- ✔ Certificado emitido pela CA Kubernetes
+- ✔ Período de validade confirmado
+
+### 9. Geração dos Kubeconfigs
+
+Os kubeconfigs individuais foram gerados pelo script:
+
+```text
+06-gerar-kubeconfigs.sh
+```
+
+### Preparação
+
+```bash
+chmod +x 06-gerar-kubeconfigs.sh
+```
+
+### Execução
+
+```bash
+./06-gerar-kubeconfigs.sh
+```
+
+### Arquivos gerados
+
+```text
+evidencias/kubeconfigs/op-contas.kubeconfig
+evidencias/kubeconfigs/op-transacoes.kubeconfig
+evidencias/kubeconfigs/auditor.kubeconfig
+evidencias/kubeconfigs/sre.kubeconfig
+```
+
+### Permissões dos arquivos
+
+```text
+-rw------- auditor.kubeconfig
+-rw------- op-contas.kubeconfig
+-rw------- op-transacoes.kubeconfig
+-rw------- sre.kubeconfig
+```
+
+As permissões `600` garantem que apenas o proprietário tenha acesso ao conteúdo.
+
+### Resultado da etapa
+
+- ✔ Kubeconfig do operador de contas criado
+- ✔ Kubeconfig do operador de transações criado
+- ✔ Kubeconfig do auditor criado
+- ✔ Kubeconfig do SRE criado
+- ✔ Arquivos protegidos com permissão restrita
+
+### 10. Validação da Autenticação X.509
+
+A identidade do operador de contas foi validada por meio do próprio kubeconfig.
+
+### Comando utilizado
+
+```bash
+kubectl \
+  --kubeconfig=evidencias/kubeconfigs/op-contas.kubeconfig \
+  auth whoami
+```
+
+### Resultado obtido
+
+```text
+Username   operador-contas
+Groups     [tipsbank-users system:authenticated]
+```
+
+A autenticação também apresentou um identificador da credencial X.509:
+
+```text
+authentication.kubernetes.io/credential-id
+```
+
+### Resultado da etapa
+
+- ✔ Kubeconfig autenticando com certificado próprio
+- ✔ Usuário identificado como `operador-contas`
+- ✔ Grupo `tipsbank-users` identificado
+- ✔ Usuário reconhecido como autenticado pelo Kubernetes
+
+### 11. Validação do Operador de Contas
+
+### Acesso permitido no namespace de contas
+
+```bash
+kubectl \
+  --kubeconfig=evidencias/kubeconfigs/op-contas.kubeconfig \
+  get pods \
+  -n tipsbank-contas
+```
+
+### Resultado obtido
+
+```text
+NAME                         READY   STATUS    RESTARTS
+api-contas-f95565b95-2ctlw   1/1     Running   0
+api-contas-f95565b95-wt2s7   1/1     Running   0
+postgres-0                   1/1     Running   3
+postgres-replica-0           1/1     Running   3
+```
+
+### Acesso negado no namespace de transações
+
+```bash
+kubectl \
+  --kubeconfig=evidencias/kubeconfigs/op-contas.kubeconfig \
+  get pods \
+  -n tipsbank-transacoes
+```
+
+### Resultado obtido
+
+```text
+Error from server (Forbidden): pods is forbidden:
+User "operador-contas" cannot list resource "pods"
+in API group "" in the namespace "tipsbank-transacoes"
+```
+
+### Validação complementar
+
+```bash
+kubectl auth can-i get pods \
+  -n tipsbank-contas \
+  --as=operador-contas
+
+kubectl auth can-i get pods \
+  -n tipsbank-transacoes \
+  --as=operador-contas
+
+kubectl auth can-i get pods/log \
+  -n tipsbank-contas \
+  --as=operador-contas
+
+kubectl auth can-i delete pods \
+  -n tipsbank-contas \
+  --as=operador-contas
+```
+
+### Resultado obtido
+
+```text
+yes
+no
+yes
+no
+```
+
+### Resultado da etapa
+
+- ✔ Listagem de Pods permitida em `tipsbank-contas`
+- ✔ Consulta de logs permitida em `tipsbank-contas`
+- ✔ Acesso a `tipsbank-transacoes` negado
+- ✔ Exclusão de Pods negada
+- ✔ Isolamento de namespace funcionando
+
+### 12. Validação do Auditor Global
+
+### Acesso de leitura global
+
+```bash
+kubectl \
+  --kubeconfig=evidencias/kubeconfigs/auditor.kubeconfig \
+  get pods \
+  -A
+```
+
+O comando listou Pods de todos os namespaces do cluster.
+
+### Validação com `auth can-i`
+
+```bash
+kubectl auth can-i list pods \
+  --all-namespaces \
+  --as=auditor-global
+
+kubectl auth can-i get pods/log \
+  --all-namespaces \
+  --as=auditor-global
+
+kubectl auth can-i delete pods \
+  --all-namespaces \
+  --as=auditor-global
+```
+
+### Resultado obtido
+
+```text
+yes
+yes
+no
+```
+
+### Teste de exclusão
+
+```bash
+kubectl \
+  --kubeconfig=evidencias/kubeconfigs/auditor.kubeconfig \
+  delete pod api-contas-f95565b95-2ctlw \
+  -n tipsbank-contas
+```
+
+### Resultado obtido
+
+```text
+Error from server (Forbidden): pods "api-contas-f95565b95-2ctlw" is forbidden:
+User "auditor-global" cannot delete resource "pods"
+in API group "" in the namespace "tipsbank-contas"
+```
+
+### Resultado da etapa
+
+- ✔ Auditor consegue listar Pods de todos os namespaces
+- ✔ Auditor consegue consultar logs
+- ✔ Auditor não consegue excluir Pods
+- ✔ Perfil configurado como somente leitura
+
+### 13. Validação do Perfil SRE
+
+O perfil SRE foi testado com acesso irrestrito.
+
+### Comando utilizado
+
+```bash
+kubectl auth can-i '*' '*' \
+  --all-namespaces \
+  --as=sre
+```
+
+### Resultado obtido
+
+```text
+yes
+```
+
+### Resultado da etapa
+
+- ✔ Perfil SRE possui acesso administrativo total
+- ✔ ClusterRole `cluster-admin` associada corretamente
+- ✔ Acesso disponível em todos os namespaces
+
+### 14. Validação do Operador de Transações
+
+O perfil `operador-transacoes` deve possuir permissão para:
+
+- consultar Pods;
+- listar Pods;
+- acompanhar alterações;
+- consultar logs;
+- executar comandos em containers por meio de `pods/exec`.
+
+### Validação esperada
+
+```bash
+kubectl auth can-i create pods/exec \
+  -n tipsbank-transacoes \
+  --as=operador-transacoes
+```
+
+### Resultado obtido no teste atual
+
+```text
+no
+```
+
+Esse resultado indica que a permissão de execução ainda não está concedida corretamente.
+
+Para `kubectl exec`, a subresource `pods/exec` normalmente precisa da permissão:
+
+```yaml
+apiGroups:
+  - ""
+resources:
+  - pods/exec
+verbs:
+  - create
+```
+
+### Ajuste recomendado na Role
+
+```yaml
+- apiGroups:
+    - ""
+  resources:
+    - pods/exec
+  verbs:
+    - create
+```
+
+Após alterar o manifesto:
+
+```bash
+kubectl apply -f 01-rbac-operadores.yaml
+```
+
+### Nova validação
+
+```bash
+kubectl auth can-i create pods/exec \
+  -n tipsbank-transacoes \
+  --as=operador-transacoes
+```
+
+### Resultado esperado
+
+```text
+yes
+```
+
+Também deve ser realizado um teste com o kubeconfig real:
+
+```bash
+POD=$(kubectl get pods \
+  -n tipsbank-transacoes \
+  -l app=api-transacoes \
+  -o jsonpath='{.items[0].metadata.name}')
+
+kubectl \
+  --kubeconfig=evidencias/kubeconfigs/op-transacoes.kubeconfig \
+  exec \
+  -n tipsbank-transacoes \
+  "$POD" \
+  -c api-transacoes \
+  -- id
+```
+
+> Como as imagens Distroless podem não possuir shell ou o binário `id`, o teste pode falhar por ausência do comando dentro da imagem mesmo com o RBAC correto. A validação principal da permissão pode ser realizada com `kubectl auth can-i create pods/exec`.
+
+### Situação atual
+
+- ✔ Perfil e kubeconfig criados
+- ✔ RoleBinding criado
+- ⚠ Permissão `pods/exec` ainda retorna `no`
+- ⚠ Critério de acesso por `exec` pendente de correção
+
+### 15. Proteção das Chaves Privadas
+
+As chaves privadas não devem ser armazenadas no repositório Git.
+
+Foi criado um arquivo:
+
+```text
+.gitignore
+```
+
+### Regras recomendadas
+
+```gitignore
+# Chaves privadas
+*.key
+*.pem
+
+# Certificados e CSRs locais
+evidencias/certificados/*.key
+evidencias/certificados/*.csr
+
+# Kubeconfigs com credenciais incorporadas
+evidencias/kubeconfigs/*.kubeconfig
+```
+
+Mesmo que os kubeconfigs sejam solicitados como evidência, eles podem conter:
+
+- certificado do cliente;
+- chave privada codificada em Base64;
+- endereço da API do cluster;
+- certificado da autoridade certificadora.
+
+Por esse motivo, não devem ser enviados para repositórios públicos.
+
+### Validação
+
+```bash
+git status --ignored
+```
+
+### Resultado da etapa
+
+- ✔ Arquivo `.gitignore` criado
+- ✔ Chaves privadas protegidas
+- ✔ Kubeconfigs excluídos do versionamento
+- ✔ Informações sensíveis não destinadas ao repositório
+
+### 16. Script de Validação Consolidada
+
+Foi utilizado o script:
+
+```text
+07-testes-rbac.sh
+```
+
+### Preparação
+
+```bash
+chmod +x 07-testes-rbac.sh
+```
+
+### Execução
+
+```bash
+./07-testes-rbac.sh
+```
+
+O script gerou a evidência consolidada:
+
+```text
+evidencias/EVIDENCIAS-RBAC.md
+```
+
+O arquivo reúne:
+
+- CSRs;
+- Roles e RoleBindings;
+- ClusterRoles e ClusterRoleBindings;
+- ServiceAccounts;
+- testes dos operadores;
+- teste do auditor;
+- teste do SRE.
+
+### 17. Evidências
+
+As evidências desta etapa foram armazenadas em:
+
+```text
+evidencias/
+├── certificados/
+├── kubeconfigs/
+└── EVIDENCIAS-RBAC.md
+```
+
+### Evidência consolidada
+
+- 📄 [EVIDENCIAS-RBAC.md](../k8s/etapa-4.4/evidencias/EVIDENCIAS-RBAC.md)
+
+### 18. Referência dos Arquivos
+
+
+- 📄 [01-rbac-operadores.yaml](../k8s/etapa-4.4/01-rbac-operadores.yaml)
+- 📄 [02-rbac-auditor.yaml](../k8s/etapa-4.4/02-rbac-auditor.yaml)
+- 📄 [03-rbac-sre.yaml](../k8s/etapa-4.4/03-rbac-sre.yaml)
+- 📄 [04-serviceaccounts.yaml](../k8s/etapa-4.4/04-serviceaccounts.yaml)
+- 📄 [05-gerar-certificados.sh](../k8s/etapa-4.4/05-gerar-certificados.sh)
+- 📄 [06-gerar-kubeconfigs.sh](../k8s/etapa-4.4/06-gerar-kubeconfigs.sh)
+- 📄 [07-testes-rbac.sh](../k8s/etapa-4.4/07-testes-rbac.sh)
+- 📄 [.gitignore](../k8s/etapa-4.4/.gitignore)
+
+### Pontos de Atenção
+
+Durante a validação, alguns Pods recém-criados das APIs de transações apresentaram:
+
+```text
+CreateContainerConfigError
+```
+
+Foram observados Pods novos dos Deployments:
+
+```text
+api-transacoes
+api-transacoes-v2
+```
+
+Essa condição não invalida diretamente os testes de RBAC, mas deve ser investigada antes de encerrar a etapa.
+
+### Comandos para diagnóstico
+
+```bash
+kubectl describe pod \
+  -n tipsbank-transacoes \
+  <nome-do-pod>
+```
+
+```bash
+kubectl get events \
+  -n tipsbank-transacoes \
+  --sort-by='.lastTimestamp'
+```
+
+```bash
+kubectl get pod \
+  -n tipsbank-transacoes \
+  <nome-do-pod> \
+  -o yaml
+```
+
+Possíveis causas incluem:
+
+- Secret ausente;
+- ConfigMap ausente;
+- volume ou volumeMount inválido;
+- restrições aplicadas pelo Kyverno;
+- alteração no ServiceAccount;
+- referência incorreta em `envFrom`;
+- token ou credencial indisponível.
+
+Também foi observado o Pod de teste:
+
+```text
+default/nginx-mutate
+```
+
+com estado:
+
+```text
+CreateContainerConfigError
+```
+
+Esse Pod pertence à etapa anterior e pode ser removido após a coleta das evidências.
+
+```bash
+kubectl delete pod nginx-mutate \
+  -n default \
+  --ignore-not-found
+```
+
+### Conclusão
+
+- ✔ Quatro identidades humanas criadas com certificados X.509 próprios
+- ✔ Certificados aprovados e emitidos pela CA do Kubernetes
+- ✔ Kubeconfigs individuais gerados
+- ✔ Operador de contas limitado ao namespace correto
+- ✔ Auditor global configurado como somente leitura
+- ✔ SRE associado à função `cluster-admin`
+- ✔ Dois ServiceAccounts criados e associados às APIs
+- ✔ Chaves privadas protegidas contra commit
+- ⚠ Permissão `pods/exec` do operador de transações ainda precisa ser corrigida
+- ⚠ Pods com `CreateContainerConfigError` precisam ser investigados
+- ⚠ Etapa parcialmente concluída até a correção do acesso `exec`
+
+---

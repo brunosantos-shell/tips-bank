@@ -1,0 +1,13 @@
+# Etapa 4.4 — credenciais Kubernetes
+etapa-4.4/evidencias/chaves/
+etapa-4.4/evidencias/kubeconfigs/
+etapa-4.4/evidencias/certificados/
+etapa-4.4/evidencias/csrs/
+
+# Chaves e kubeconfigs em qualquer diretório
+*.key
+*.pem
+*.kubeconfig
+
+# Tokens temporários
+*.token
